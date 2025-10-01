@@ -10,35 +10,40 @@ int main (int argc, char **argv)
     }
     else
     {
-        std::cout << "parse ok\n";
+        int serverSocket = socket(AF_INET, SOCK_STREAM, 0); // ca c'est pour creer le socket du server
+        //maintenat on doit definir l'adresse du server
+        sockaddr_in serverAdress; //sockaddr_in c'est la structure de donnes qui stock l'adresse du socket
+        serverAdress.sin_family = AF_INET; // le port il est en ipv4
+        serverAdress.sin_port = htons(8080); // convertit le port en format rsx pour que toutes les machines peuvent communiquer;
+        serverAdress.sin_addr.s_addr = INADDR_ANY; //accept les connections de toutes les IP
+        bind(serverSocket, (struct sockaddr *)&serverAdress, sizeof(serverAdress)); //on va bind le socket du server a son adresse;
+        listen(serverSocket, 5);
+
+        int clientSocket = accept(serverSocket, NULL, NULL);
+
+        char buffer[1024] = {0};
+        recv(clientSocket, buffer, sizeof(buffer), 0);
+        std::cout << "Message from client: " << buffer << std::endl;
+
+        close(serverSocket);
+
+        clientConnection();
     }
 }
 
-bool checkPortNb(int portNb)
+void clientConnection(void)
 {
-    if (portNb >= 1 && portNb <= 65535)
-        return true;
-    else
-        return false;
-    return true;
-}
+    int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in clientAdress;
 
-bool parsePortAndPswd(char *port, char *password)
-{
-    int portNb = atoi(port);
-    if (strlen(port) == 0 || strlen(password) == 0 || strlen(password) >= 255)
-        return false;
-    for (int i = 0; port[i]; i++)
-    {
-        if (!isdigit(port[i]) || port[i] == '+' 
-            || port[i] == '-' || port[i] == ' '
-            || port[i] == '\t' || !checkPortNb(portNb))
-            return false;
-    }
-    for (int i = 0; password[i]; i++)
-    {
-        if (!isprint(password[i]))
-            return false;
-    }
-    return true;
+    clientAdress.sin_family = AF_INET;
+    clientAdress.sin_port = htons(8080);
+    clientAdress.sin_addr.s_addr = INADDR_ANY;
+    connect(clientSocket, (struct sockaddr*)&clientAdress, sizeof(clientAdress));
+
+    const char *message = "OE LE SERVEEEER OE\n";
+    send(clientSocket, message, strlen(message), 0);
+
+    close(clientSocket);
+
 }
