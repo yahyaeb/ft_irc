@@ -1,4 +1,4 @@
-SRCS = code/main.cpp code/utils/utils.cpp
+SRCS = code/main.cpp code/utils/utils.cpp code/server/server.cpp code/client/client.cpp
 
 OBJS = ${SRCS:.cpp=.o}
 
