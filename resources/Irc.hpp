@@ -12,5 +12,4 @@
 #include <cstring>          
 #include <cerrno> 
 bool parsePortAndPswd(char *port, char *password);
-void clientConnection(void);
 #endif
