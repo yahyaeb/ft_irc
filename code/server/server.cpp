@@ -35,12 +35,22 @@ void    Server::ServerInit(int port)
 
     std::cout << "Server <" << this->_ServerSocket << "> connected!\n";
     std::cout << "The server is waiting to accept a connection...\n";
-    // while (Server::_Signal == false)
-    // {
-    //     if (poll(&this->_pollFds[0], this->_pollFds.size(), -1) == -1 && Server::_Signal == false)
-    //         throw(std::runtime_error("Error: call to poll failed"))
-        
-    // }
+    while (Server::_Signal == false)
+    {
+        if (poll(&this->_pollFds[0], this->_pollFds.size(), -1) == -1 && Server::_Signal == false)
+            throw(std::runtime_error("Error: call to poll failed"));
+        for (size_t i = 0; i < this->_pollFds.size(); i++)
+        {
+            if (this->_pollFds[i].revents & POLLIN)
+            {
+                if (this->_pollFds[i].fd == this->_ServerSocket)
+                    this->AcceptNewClient();
+                else
+                    this->ReceiveNewData(this->_pollFds[i].fd);
+            }
+        }
+    }
+    closeFds();
 }
 
 void    Server::ServerSocketCreation(void)
