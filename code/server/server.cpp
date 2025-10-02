@@ -1,7 +1,7 @@
 #include "../../resources/Irc.hpp"
 
 Server::Server(){this->_ServerSocket = -1;}
-
+bool Server::_Signal = false;
 void Server::ClearClients(int fd)
 {
     for (size_t i = 0; i < this->_pollFds.size(); i++)
@@ -21,6 +21,12 @@ void Server::ClearClients(int fd)
         }
     }
 }
+void    Server::HandleSignal(int signum)
+{
+    (void)signum;
+    std::cout << "Signal received\n";
+    Server::_Signal = true;
+}
 
 void    Server::ServerInit(int port)
 {
@@ -29,6 +35,12 @@ void    Server::ServerInit(int port)
 
     std::cout << "Server <" << this->_ServerSocket << "> connected!\n";
     std::cout << "The server is waiting to accept a connection...\n";
+    // while (Server::_Signal == false)
+    // {
+    //     if (poll(&this->_pollFds[0], this->_pollFds.size(), -1) == -1 && Server::_Signal == false)
+    //         throw(std::runtime_error("Error: call to poll failed"))
+        
+    // }
 }
 
 void    Server::ServerSocketCreation(void)

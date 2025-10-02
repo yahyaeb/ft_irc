@@ -13,13 +13,13 @@ int main (int argc, char **argv)
     {
         try
         {
-            signal(SIGINT, SIG_DFL);
-            signal(SIGQUIT, SIG_DFL);
+            signal(SIGINT, serv.HandleSignal);
+            signal(SIGQUIT, serv.HandleSignal);
             serv.ServerInit(atoi(argv[1]));
         }
         catch(const std::exception& e)
         {
-            // serv.closeFds();
+            serv.closeFds();
             std::cerr << e.what() << '\n';
         }
         

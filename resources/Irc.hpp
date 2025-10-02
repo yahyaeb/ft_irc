@@ -32,6 +32,7 @@ class Server
     private:
     int _ServerPort;
     int _ServerSocket;
+    bool static _Signal;
     std::vector<Client> _ServerClients;
     std::vector<struct pollfd> _pollFds;
 
@@ -42,7 +43,7 @@ class Server
     void    ServerSocketCreation();
     void    AcceptNewClient();
     void    ReceiveNewData(int fd);
-    static void SignalHandler(int signum);
+    static void HandleSignal(int signum);
     void    closeFds();
     void    ClearClients(int fd);
 };
