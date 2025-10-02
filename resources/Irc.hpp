@@ -11,7 +11,8 @@
 #include <netdb.h>          
 #include <cstring>
 #include <poll.h>
-#include <cerrno> 
+#include <cerrno>
+#include <fcntl.h>
 
 class Client
 {
@@ -30,14 +31,14 @@ class Server
 {
     private:
     int _ServerPort;
-    int _SocketServFd;
+    int _ServerSocket;
     std::vector<Client> _ServerClients;
     std::vector<struct pollfd> _pollFds;
 
 
     public:
     Server();
-    void    ServerInit();
+    void    ServerInit(int port);
     void    ServerSocketCreation();
     void    AcceptNewClient();
     void    ReceiveNewData(int fd);

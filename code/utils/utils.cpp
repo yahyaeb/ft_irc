@@ -2,7 +2,7 @@
 
 bool checkPortNb(int portNb)
 {
-    if (portNb >= 1 && portNb <= 65535)
+    if (portNb >= 1024 && portNb <= 65535)
         return true;
     else
         return false;
