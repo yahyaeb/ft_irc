@@ -24,7 +24,6 @@ void Server::ClearClients(int fd)
 void    Server::HandleSignal(int signum)
 {
     (void)signum;
-    std::cout << "Signal received\n";
     Server::_Signal = true;
 }
 
@@ -101,4 +100,28 @@ void Server::AcceptNewClient()
 
     this->_ServerClients.push_back(client);
     this->_pollFds.push_back(clientPollFd);
+
+    std::cout << "Client <" << clientSocket << "> connected to the server!\n";
+}
+
+void Server::ReceiveNewData(int fd)
+{
+    char buffer[1024];
+
+    memset(buffer, 0, sizeof(buffer));
+
+    ssize_t receivedBytes = recv(fd, buffer, sizeof(buffer) - 1, 0);
+
+    if (receivedBytes <= 0)
+    {
+        std::cout << "Client disconnected see you next time!\n";
+        this->ClearClients(fd);
+        closeFds();
+    }
+    else
+    {
+        buffer[receivedBytes] = '\0';
+        std::cout << "Data from Client <" << fd << ">: " << buffer << std::endl;
+        //ici je mettrai le code de parsing des donnes recues
+    }
 }
