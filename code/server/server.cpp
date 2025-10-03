@@ -79,3 +79,26 @@ void    Server::ServerSocketCreation(void)
     Polls.revents = 0;
     this->_pollFds.push_back(Polls);
 }
+
+void Server::AcceptNewClient()
+{
+    Client client;
+    struct sockaddr_in clientAdress;
+    struct pollfd   clientPollFd;
+    socklen_t       len = sizeof(clientAdress);
+
+    int clientSocket = accept(this->_ServerSocket, (sockaddr *)&clientAdress, &len);
+    if (clientSocket == -1)
+        throw(std::runtime_error("Error: client socket creation failed\n"));
+    if (fcntl(clientSocket, F_SETFL, O_NONBLOCK) == -1)
+        throw(std::runtime_error("Error: failed to set client socket in non blocking mode\n"));
+    clientPollFd.fd = clientSocket;
+    clientPollFd.events = POLLIN;
+    clientPollFd.revents = 0;
+
+    client.setFd(clientSocket);
+    client.setIp(inet_ntoa(clientAdress.sin_addr));
+
+    this->_ServerClients.push_back(client);
+    this->_pollFds.push_back(clientPollFd);
+}
