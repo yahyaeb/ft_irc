@@ -114,9 +114,9 @@ void Server::ReceiveNewData(int fd)
 
     if (receivedBytes <= 0)
     {
-        std::cout << "Client disconnected see you next time!\n";
+        std::cout << "Client <" << fd << "> disconnected see you next time!\n";
         this->ClearClients(fd);
-        closeFds();
+        close(fd);
     }
     else
     {
