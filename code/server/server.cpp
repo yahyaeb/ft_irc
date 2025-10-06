@@ -121,16 +121,20 @@ void Server::ReceiveNewData(int fd)
     else
     {
         buffer[receivedBytes] = '\0';
-        std::cout << "Data from Client <" << fd << ">: " << buffer << std::endl;
+        std::cout << "Data from Client <" << fd << ">: " << std::endl << buffer << std::endl;
         //ici je mettrai le code de parsing des donnes recues
-        // HandleInput(buffer);
+        HandleInput(buffer);
     }
 }
 
-// void    Server::HandleInput(char *buffer)
-// {
-//     std::string userInput(buffer);
+void    Server::HandleInput(char *buffer)
+{
+    std::string clientOutput(buffer);
 
-//     if (userInput == "iheb\r\n")
-//         std::cout << "hello iheb how are you today\n";
-// }
+    if (clientOutput.substr(clientOutput.size() - 2) == "\r\n")
+        clientOutput = clientOutput.substr(0, clientOutput.size() - 2);
+    if (clientOutput == "JOIN :")
+    {
+        
+    }
+}
