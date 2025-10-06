@@ -13,6 +13,7 @@
 #include <poll.h>
 #include <cerrno>
 #include <fcntl.h>
+#include <sstream>
 
 class Client
 {
@@ -46,6 +47,7 @@ class Server
     static void HandleSignal(int signum);
     void    closeFds();
     void    ClearClients(int fd);
+    void    HandleInput(char *buffer);
 };
 
 bool parsePortAndPswd(char *port, char *password);

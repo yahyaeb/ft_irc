@@ -123,5 +123,14 @@ void Server::ReceiveNewData(int fd)
         buffer[receivedBytes] = '\0';
         std::cout << "Data from Client <" << fd << ">: " << buffer << std::endl;
         //ici je mettrai le code de parsing des donnes recues
+        // HandleInput(buffer);
     }
 }
+
+// void    Server::HandleInput(char *buffer)
+// {
+//     std::string userInput(buffer);
+
+//     if (userInput == "iheb\r\n")
+//         std::cout << "hello iheb how are you today\n";
+// }
