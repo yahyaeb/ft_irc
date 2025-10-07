@@ -207,8 +207,8 @@ void    Server::HandleClientMessage(int fd, std::string message)
         HandleUserCommand(fd, args);
     else if (command == "JOIN")
         HandleJoinCommand(fd, args);
-//     else
-//         SendToClient(fd, "421 * " + command + " :Unknown command");
+    // else
+    //     SendToClient(fd, "421 * " + command + " :Unknown command");
 }
 
 void    Server::HandlePassCommand(int fd, std::string args)
@@ -231,6 +231,9 @@ void    Server::HandlePassCommand(int fd, std::string args)
     {
         SendToClient(fd, "464: Password incorrect");
         std::cout << "Client authentification failed\n";
+        ClearClients(fd);
+        close(fd);
+        return ;
     }
 
 }
@@ -238,13 +241,13 @@ void    Server::HandlePassCommand(int fd, std::string args)
 void Server::HandleNickCommand(int fd, std::string args)
 {
     Client *client = this->GetClientByFd(fd);
-    std::unordered_set<std::string> nickSet;
-
     if (!client)
         return;
     if (!client->isAuthenticated())
     {
         SendToClient(fd, "451 :You have not registered (send PASS first)");
+        ClearClients(fd);
+        close(fd);
         return ;
     }
     if (args.empty())
@@ -252,13 +255,14 @@ void Server::HandleNickCommand(int fd, std::string args)
         SendToClient(fd, "431 :No nickname given");
         return;
     }
-    if (nickSet.count(args))
+    for (size_t i = 0; i < this->_ServerClients.size(); i++)
     {
-        SendToClient(fd, "433 :Nickname is already in use");
-        return;
+        if (this->_ServerClients[i].getNickname() == args && this->_ServerClients[i].getFd() != fd)
+        {
+            SendToClient(fd, "433 :Nickname is already in use");
+            return;
+        }
     }
-    else
-        nickSet.insert(args);
     
     client->setNickname(args);
     std::cout << "Client<" << fd << "> set nickname to: " << args << std::endl;
@@ -278,6 +282,8 @@ void   Server::HandleUserCommand(int fd, std::string args)
     if (!client->isAuthenticated())
     {
         SendToClient(fd, "451 :You have not registered (send PASS first)");
+        ClearClients(fd);
+        close(fd);
         return ;
     }
     std::istringstream iss(args);
