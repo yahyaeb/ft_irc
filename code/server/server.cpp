@@ -2,6 +2,46 @@
 
 Server::Server(){this->_ServerSocket = -1;}
 bool Server::_Signal = false;
+
+Client *Server::GetClientByFd(int fd)
+{
+    for (size_t i = 0; i < this->_ServerClients.size(); i++)
+    {
+        if (this->_ServerClients[i].getFd() == fd)
+            return &this->_ServerClients[i];
+    }
+    return NULL;
+}
+
+void    Server::SendToClient(int fd, std::string message)
+{
+    if (message.find("\r\n") == std::string::npos)
+        message += "\r\n";
+    if (send(fd, message.c_str(), message.length(), 0) == -1)
+        throw(std::runtime_error("Error: could not send message to client\n"));
+}
+
+std::vector<std::string> Server::SplitMessage(std::string message)
+{
+    std::vector<std::string> lines;
+    std::string line;
+
+    for (size_t i = 0; i < message.length(); i++)
+    {
+        if (message[i] == '\r' && i + 1 < message.length() && message[i + 1] == '\n')
+        {
+            if (!line.empty())
+                lines.push_back(line);
+            line.clear();
+            i++; // sauter le \n
+        }
+        else
+            line += message[i];
+    }
+    return lines;
+}
+
+
 void Server::ClearClients(int fd)
 {
     for (size_t i = 0; i < this->_pollFds.size(); i++)
@@ -27,9 +67,10 @@ void    Server::HandleSignal(int signum)
     Server::_Signal = true;
 }
 
-void    Server::ServerInit(int port)
+void    Server::ServerInit(int port, std::string password)
 {
     this->_ServerPort = port;
+    this->_ServerPassword = password;
     this->ServerSocketCreation();
 
     std::cout << "Server <" << this->_ServerSocket << "> connected!\n";
@@ -121,20 +162,159 @@ void Server::ReceiveNewData(int fd)
     else
     {
         buffer[receivedBytes] = '\0';
-        std::cout << "Data from Client <" << fd << ">: " << std::endl << buffer << std::endl;
-        //ici je mettrai le code de parsing des donnes recues
-        HandleInput(buffer);
+        Client *client = this->GetClientByFd(fd);
+        if (!client)
+            return ;
+        client->appendBuffer(std::string(buffer));
+        std::vector<std::string> lines = this->SplitMessage(client->getBuffer());
+        for (size_t i = 0; i < lines.size(); i++)
+        {
+            std::cout << "Client<" << fd << ">: " << lines[i] << std::endl;
+            this->HandleClientMessage(fd, lines[i]);
+        }
+        std::string remaining = client->getBuffer();
+        size_t lastNewline = remaining.rfind("\r\n");
+        if (lastNewline != std::string::npos)
+        {
+            client->clearBuffer();
+            if (lastNewline + 2 < remaining.length())
+                client->appendBuffer(remaining.substr(lastNewline + 2));
+        }
     }
 }
 
-void    Server::HandleInput(char *buffer)
+void    Server::HandleClientMessage(int fd, std::string message)
 {
-    std::string clientOutput(buffer);
+    size_t spacePos = message.find(' ');
+    std::string command;
+    std::string args;
 
-    if (clientOutput.substr(clientOutput.size() - 2) == "\r\n")
-        clientOutput = clientOutput.substr(0, clientOutput.size() - 2);
-    if (clientOutput == "JOIN :")
+    if (spacePos == std::string::npos)
     {
-        
+        command = message;
+        args = "";
     }
+    else
+    {
+        command = message.substr(0, spacePos);
+        args = message.substr(spacePos + 1);
+    }
+    if (command == "PASS")
+        HandlePassCommand(fd, args);
+    else if (command == "NICK")
+        HandleNickCommand(fd, args);
+    else if (command == "USER")
+        HandleUserCommand(fd, args);
+    else if (command == "JOIN")
+        HandleJoinCommand(fd, args);
+//     else
+//         SendToClient(fd, "421 * " + command + " :Unknown command");
+}
+
+void    Server::HandlePassCommand(int fd, std::string args)
+{
+    Client *client = GetClientByFd(fd);
+
+    if (!client)
+        return ;
+    if (client->isAuthenticated())
+    {
+        SendToClient(fd, "462 :you may not register");
+        return ;
+    }
+    if (args == this->_ServerPassword)
+    {
+        client->setAuthenticated(true);
+        std::cout << "Client <" << fd << ">: " << "authenticated successfully\n";
+    }
+    else
+    {
+        SendToClient(fd, "464: Password incorrect");
+        std::cout << "Client authentification failed\n";
+    }
+
+}
+
+void Server::HandleNickCommand(int fd, std::string args)
+{
+    Client *client = this->GetClientByFd(fd);
+    std::unordered_set<std::string> nickSet;
+
+    if (!client)
+        return;
+    if (!client->isAuthenticated())
+    {
+        SendToClient(fd, "451 :You have not registered (send PASS first)");
+        return ;
+    }
+    if (args.empty())
+    {
+        SendToClient(fd, "431 :No nickname given");
+        return;
+    }
+    if (nickSet.count(args))
+    {
+        SendToClient(fd, "433 :Nickname is already in use");
+        return;
+    }
+    else
+        nickSet.insert(args);
+    
+    client->setNickname(args);
+    std::cout << "Client<" << fd << "> set nickname to: " << args << std::endl;
+    if (!client->getUsername().empty() && !client->isRegistered())
+    {
+        client->setRegistered(true);
+        SendToClient(fd, "001 " + client->getNickname() + " :Welcome to the IRC Network!");
+        std::cout << "Client <" << fd << "> is now registered!\n";
+    }
+}
+
+void   Server::HandleUserCommand(int fd, std::string args)
+{
+    Client *client = GetClientByFd(fd);
+    if (!client)
+        return ;
+    if (!client->isAuthenticated())
+    {
+        SendToClient(fd, "451 :You have not registered (send PASS first)");
+        return ;
+    }
+    std::istringstream iss(args);
+    std::string username, mode, unusedParam, realname;
+
+    iss >> username >> mode >> unusedParam;
+    std::getline(iss, realname);
+    if (!realname.empty() && realname[0] == ' ')
+        realname = realname.substr(1);
+    if (!realname.empty() && realname[0] == ':')
+        realname = realname.substr(1);
+    client->setUsername(username);
+    client->setRealname(realname);
+
+    if (!client->getNickname().empty() && !client->isRegistered())
+    {
+        client->setRegistered(true);
+        SendToClient(fd, "001 " + client->getNickname() + " :Welcome to the IRC Network!");
+        std::cout << "Client <" << fd << "> is now registered!\n";
+    }
+}
+
+void Server::HandleJoinCommand(int fd, std::string args)
+{
+    Client* client = GetClientByFd(fd);
+    if (!client)
+        return;
+    
+    if (!client->isRegistered())
+    {
+        SendToClient(fd, "451 :You have not registered");
+        return;
+    }
+    
+    std::cout << "Client <" << fd << "> (" << client->getNickname() 
+              << ") wants to join: " << args << std::endl;
+    
+    // ici Implémenter la logique des channels
+    SendToClient(fd, "403 " + args + " :No such channel (not implemented yet)");
 }
