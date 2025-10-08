@@ -178,7 +178,7 @@ void    Server::HandleClientMessage(int fd, std::string message)
             SendToClient(fd, "PONG " + args);
     }
     else
-        SendToClient(fd, "421 * " + command + " :Unknown command");
+        SendToClient(fd, ":server 421 * " + command + " :Unknown command");
 }
 
 void    Server::HandlePassCommand(int fd, std::string args)
@@ -189,7 +189,7 @@ void    Server::HandlePassCommand(int fd, std::string args)
         return ;
     if (client->isAuthenticated())
     {
-        SendToClient(fd, "462 :you may not register");
+        SendToClient(fd, ":server 462 * :You may not reregister");
         return ;
     }
     if (args == this->_ServerPassword)
@@ -199,7 +199,7 @@ void    Server::HandlePassCommand(int fd, std::string args)
     }
     else
     {
-        SendToClient(fd, "464: Password incorrect");
+        SendToClient(fd, ":server 464 * :Password incorrect");
         std::cout << "Client authentification failed\n";
         ClearClients(fd);
         close(fd);
@@ -215,14 +215,14 @@ void Server::HandleNickCommand(int fd, std::string args)
         return;
     if (!client->isAuthenticated())
     {
-        SendToClient(fd, "451 :You have not registered (send PASS first)");
+        SendToClient(fd, ":server 451 * :You have not registered");
         ClearClients(fd);
         close(fd);
         return ;
     }
     if (args.empty())
     {
-        SendToClient(fd, "431 :No nickname given");
+        SendToClient(fd, ":server 431 * :No nickname given");
         return;
     }
     for (size_t i = 0; i < this->_ServerClients.size(); i++)
@@ -232,7 +232,7 @@ void Server::HandleNickCommand(int fd, std::string args)
             srand(time(NULL));
             char suffix = 'A' + rand()%26;
             this->_ServerClients[i].setNickname(this->_ServerClients[i].getNickname() + suffix);
-            SendToClient(fd, "433 :Nickname is already in use");
+            SendToClient(fd, ":server 433 * " + args + " :Nickname is already in use");
             return;
         }
     }
@@ -241,7 +241,7 @@ void Server::HandleNickCommand(int fd, std::string args)
     if (!client->getUsername().empty() && !client->isRegistered())
     {
         client->setRegistered(true);
-        SendToClient(fd, "001 " + client->getNickname() + " :Welcome to the IRC Network!");
+        SendToClient(fd, ":server 001 " + client->getNickname() + " :Welcome to the IRC Network!");
         std::cout << "Client <" << fd << "> is now registered!\n";
     }
 }
@@ -253,7 +253,7 @@ void   Server::HandleUserCommand(int fd, std::string args)
         return ;
     if (!client->isAuthenticated())
     {
-        SendToClient(fd, "451 :You have not registered (send PASS first)");
+        SendToClient(fd, ":server 451 * :You have not registered");
         ClearClients(fd);
         close(fd);
         return ;
@@ -273,7 +273,7 @@ void   Server::HandleUserCommand(int fd, std::string args)
     if (!client->getNickname().empty() && !client->isRegistered())
     {
         client->setRegistered(true);
-        SendToClient(fd, "001 " + client->getNickname() + " :Welcome to the IRC Network!");
+        SendToClient(fd, ":server 001 " + client->getNickname() + " :Welcome to the IRC Network!");
         std::cout << "Client <" << fd << "> is now registered!\n";
     }
 }
@@ -286,7 +286,7 @@ void Server::HandleJoinCommand(int fd, std::string args)
         return ;
     if (!client->isRegistered())
     {
-        SendToClient(fd, "451 :You have not registered");
+        SendToClient(fd, ":server 451 * :You have not registered");
         return ;
     }
     std::istringstream iss(args);
@@ -295,7 +295,7 @@ void Server::HandleJoinCommand(int fd, std::string args)
 
     if (channelName.empty() || channelName[0] != '#')
     {
-        SendToClient(fd, "403" + channelName + ":No such channel");
+        SendToClient(fd, ":server 403 " + client->getNickname() + " " + channelName + " :No such channel");
         return ;
     }
 
@@ -310,22 +310,22 @@ void Server::HandleJoinCommand(int fd, std::string args)
     {
         if (channel->isMember(fd))
         {
-            SendToClient(fd, "443" + channelName + ":client already in channel");
+            SendToClient(fd, ":server 443 " + client->getNickname() + " " + channelName + " :is already on channel");
             return;
         }
         if (channel->isInviteOnly() && !channel->isMember(fd))
         {
-            SendToClient(fd, "473" + channelName + ":channel is in invite-only mode");
+            SendToClient(fd, ":server 473 " + client->getNickname() + " " + channelName + " :Cannot join channel (+i)");
             return ;
         }
         if (channel->hasPassword() && channel->getPassword() != channelPassword)
         {
-            SendToClient(fd, "475" + channelName + ":cannot join channel, wrong password");
+            SendToClient(fd, ":server 475 " + client->getNickname() + " " + channelName + " :Cannot join channel (+k)");
             return ;
         }
         if (channel->hasUserLimit() && channel->getClients().size() >= channel->getUserLimit())
         {
-            SendToClient(fd, "471" + channelName + ":channel's user limit reached");
+            SendToClient(fd, ":server 471 " + client->getNickname() + " " + channelName + " :Cannot join channel (+l)");
             return ;
         }
     }
@@ -336,11 +336,11 @@ void Server::HandleJoinCommand(int fd, std::string args)
     channel->broadcastToChannel(joinMsg, -1);
     if (!channel->getTopic().empty())
     {
-        SendToClient(fd, "332 " + client->getNickname() + " " + channelName + " :" + channel->getTopic());
+        SendToClient(fd, ":server 332 " + client->getNickname() + " " + channelName + " :" + channel->getTopic());
     }
     else
     {
-        SendToClient(fd, "331 " + client->getNickname() + " " + channelName + " :No topic is set");
+        SendToClient(fd, ":server 331 " + client->getNickname() + " " + channelName + " :No topic is set");
     }
     std::string userList = "353 " + client->getNickname() + " = " + channelName + " :";
     std::vector<Client*> clients = channel->getClients();
@@ -352,7 +352,34 @@ void Server::HandleJoinCommand(int fd, std::string args)
         if (i < clients.size() - 1)
             userList += " ";
     }
-    SendToClient(fd, userList);
-    SendToClient(fd, "366 " + client->getNickname() + " " + channelName + " :End of /NAMES list");
+    SendToClient(fd, ":server " + userList);
+    SendToClient(fd, ":server 366 " + client->getNickname() + " " + channelName + " :End of /NAMES list");
     std::cout << "Client <" << fd << "> (" << client->getNickname() << ") joined " << channelName << std::endl;
+}
+
+void    Server::HandlePrivmsgCommand(int fd, std::string args)
+{
+    Client  *client = GetClientByFd(fd);
+    if (!client)
+        return ;
+    if (!client->isRegistered())
+    {
+        SendToClient(fd, ":server 451 * :You have not registered");
+        return ;
+    }
+    size_t space = args.find(' ');
+    if (space == std::string::npos)
+    {
+        SendToClient(fd, "411 :No recipient given (PRIVMSG)");
+        return;
+    }
+    std::string messageTarget = args.substr(0, space);
+    std::string message = args.substr(space + 1);
+    if (message.empty() || message[0] != ':')
+    {
+        SendToClient(fd, "412 :No text to send");
+        return ;
+    }
+    message = message.substr(1); //enlever les : avant le message
+    
 }
