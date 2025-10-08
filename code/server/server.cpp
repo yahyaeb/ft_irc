@@ -3,45 +3,6 @@
 Server::Server(){this->_ServerSocket = -1;}
 bool Server::_Signal = false;
 
-Client *Server::GetClientByFd(int fd)
-{
-    for (size_t i = 0; i < this->_ServerClients.size(); i++)
-    {
-        if (this->_ServerClients[i].getFd() == fd)
-            return &this->_ServerClients[i];
-    }
-    return NULL;
-}
-
-void    Server::SendToClient(int fd, std::string message)
-{
-    if (message.find("\r\n") == std::string::npos)
-        message += "\r\n";
-    if (send(fd, message.c_str(), message.length(), 0) == -1)
-        throw(std::runtime_error("Error: could not send message to client\n"));
-}
-
-std::vector<std::string> Server::SplitMessage(std::string message)
-{
-    std::vector<std::string> lines;
-    std::string line;
-
-    for (size_t i = 0; i < message.length(); i++)
-    {
-        if (message[i] == '\r' && i + 1 < message.length() && message[i + 1] == '\n')
-        {
-            if (!line.empty())
-                lines.push_back(line);
-            line.clear();
-            i++; // sauter le \n
-        }
-        else
-            line += message[i];
-    }
-    return lines;
-}
-
-
 void Server::ClearClients(int fd)
 {
     for (size_t i = 0; i < this->_pollFds.size(); i++)
@@ -207,8 +168,17 @@ void    Server::HandleClientMessage(int fd, std::string message)
         HandleUserCommand(fd, args);
     else if (command == "JOIN")
         HandleJoinCommand(fd, args);
-    // else
-    //     SendToClient(fd, "421 * " + command + " :Unknown command");
+    else if (command == "CAP")
+        return ;
+    else if (command == "PING")
+    {
+        if (args.empty())
+            SendToClient(fd, "PONG");
+        else
+            SendToClient(fd, "PONG " + args);
+    }
+    else
+        SendToClient(fd, "421 * " + command + " :Unknown command");
 }
 
 void    Server::HandlePassCommand(int fd, std::string args)
@@ -259,11 +229,13 @@ void Server::HandleNickCommand(int fd, std::string args)
     {
         if (this->_ServerClients[i].getNickname() == args && this->_ServerClients[i].getFd() != fd)
         {
+            srand(time(NULL));
+            char suffix = 'A' + rand()%26;
+            this->_ServerClients[i].setNickname(this->_ServerClients[i].getNickname() + suffix);
             SendToClient(fd, "433 :Nickname is already in use");
             return;
         }
     }
-    
     client->setNickname(args);
     std::cout << "Client<" << fd << "> set nickname to: " << args << std::endl;
     if (!client->getUsername().empty() && !client->isRegistered())
@@ -308,19 +280,79 @@ void   Server::HandleUserCommand(int fd, std::string args)
 
 void Server::HandleJoinCommand(int fd, std::string args)
 {
-    Client* client = GetClientByFd(fd);
+    Client *client = GetClientByFd(fd);
+
     if (!client)
-        return;
-    
+        return ;
     if (!client->isRegistered())
     {
         SendToClient(fd, "451 :You have not registered");
-        return;
+        return ;
     }
-    
-    std::cout << "Client <" << fd << "> (" << client->getNickname() 
-              << ") wants to join: " << args << std::endl;
-    
-    // ici Implémenter la logique des channels
-    SendToClient(fd, "403 " + args + " :No such channel (not implemented yet)");
+    std::istringstream iss(args);
+    std::string channelName, channelPassword;
+    iss >> channelName >> channelPassword;
+
+    if (channelName.empty() || channelName[0] != '#')
+    {
+        SendToClient(fd, "403" + channelName + ":No such channel");
+        return ;
+    }
+
+    Channel *channel = GetChannelByName(channelName);
+
+    if (!channel)
+    {
+        channel = CreateChannel(channelName, client);
+        std::cout << "client: " << client->getUsername() << "created the: " << channel->getName() << " channel" << std::endl;
+    }
+    else
+    {
+        if (channel->isMember(fd))
+        {
+            SendToClient(fd, "443" + channelName + ":client already in channel");
+            return;
+        }
+        if (channel->isInviteOnly() && !channel->isMember(fd))
+        {
+            SendToClient(fd, "473" + channelName + ":channel is in invite-only mode");
+            return ;
+        }
+        if (channel->hasPassword() && channel->getPassword() != channelPassword)
+        {
+            SendToClient(fd, "475" + channelName + ":cannot join channel, wrong password");
+            return ;
+        }
+        if (channel->hasUserLimit() && channel->getClients().size() >= channel->getUserLimit())
+        {
+            SendToClient(fd, "471" + channelName + ":channel's user limit reached");
+            return ;
+        }
+    }
+    channel->addClient(client);
+    if (channel->isInvited(fd))
+        channel->removeInvited(fd);
+    std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost JOIN " + channelName;
+    channel->broadcastToChannel(joinMsg, -1);
+    if (!channel->getTopic().empty())
+    {
+        SendToClient(fd, "332 " + client->getNickname() + " " + channelName + " :" + channel->getTopic());
+    }
+    else
+    {
+        SendToClient(fd, "331 " + client->getNickname() + " " + channelName + " :No topic is set");
+    }
+    std::string userList = "353 " + client->getNickname() + " = " + channelName + " :";
+    std::vector<Client*> clients = channel->getClients();
+    for (size_t i = 0; i < clients.size(); i++)
+    {
+        if (channel->isOperator(clients[i]->getFd()))
+            userList += "@";
+        userList += clients[i]->getNickname();
+        if (i < clients.size() - 1)
+            userList += " ";
+    }
+    SendToClient(fd, userList);
+    SendToClient(fd, "366 " + client->getNickname() + " " + channelName + " :End of /NAMES list");
+    std::cout << "Client <" << fd << "> (" << client->getNickname() << ") joined " << channelName << std::endl;
 }

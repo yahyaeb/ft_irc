@@ -36,3 +36,41 @@ void    Server::closeFds()
     if (this->_ServerSocket != -1)
         close (this->_ServerSocket);
 }
+
+Client *Server::GetClientByFd(int fd)
+{
+    for (size_t i = 0; i < this->_ServerClients.size(); i++)
+    {
+        if (this->_ServerClients[i].getFd() == fd)
+            return &this->_ServerClients[i];
+    }
+    return NULL;
+}
+
+void    Server::SendToClient(int fd, std::string message)
+{
+    if (message.find("\r\n") == std::string::npos)
+        message += "\r\n";
+    if (send(fd, message.c_str(), message.length(), 0) == -1)
+        throw(std::runtime_error("Error: could not send message to client\n"));
+}
+
+std::vector<std::string> Server::SplitMessage(std::string message)
+{
+    std::vector<std::string> lines;
+    std::string line;
+
+    for (size_t i = 0; i < message.length(); i++)
+    {
+        if (message[i] == '\r' && i + 1 < message.length() && message[i + 1] == '\n')
+        {
+            if (!line.empty())
+                lines.push_back(line);
+            line.clear();
+            i++; // sauter le \n
+        }
+        else
+            line += message[i];
+    }
+    return lines;
+}
