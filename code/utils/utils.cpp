@@ -16,9 +16,7 @@ bool parsePortAndPswd(char *port, char *password)
         return false;
     for (int i = 0; port[i]; i++)
     {
-        if (!isdigit(port[i]) || port[i] == '+' 
-            || port[i] == '-' || port[i] == ' '
-            || port[i] == '\t' || !checkPortNb(portNb))
+        if (!isdigit(port[i]) || port[i] == '+' || port[i] == '-' || port[i] == ' ' || port[i] == '\t' || !checkPortNb(portNb))
             return false;
     }
     for (int i = 0; password[i]; i++)
@@ -29,7 +27,7 @@ bool parsePortAndPswd(char *port, char *password)
     return true;
 }
 
-void    Server::closeFds()
+void Server::closeFds()
 {
     for (size_t i = 0; i < this->_ServerClients.size(); i++)
     {
@@ -37,7 +35,7 @@ void    Server::closeFds()
         delete this->_ServerClients[i];
     }
     if (this->_ServerSocket != -1)
-        close (this->_ServerSocket);
+        close(this->_ServerSocket);
 }
 
 Client *Server::GetClientByFd(int fd)
@@ -50,7 +48,7 @@ Client *Server::GetClientByFd(int fd)
     return NULL;
 }
 
-void    Server::SendToClient(int fd, std::string message)
+void Server::SendToClient(int fd, std::string message)
 {
     if (message.find("\r\n") == std::string::npos)
         message += "\r\n";

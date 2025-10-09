@@ -1,12 +1,12 @@
 #include "../../resources/Irc.hpp"
 
-Server::Server(){this->_ServerSocket = -1;}
+Server::Server() { this->_ServerSocket = -1; }
 bool Server::_Signal = false;
 
 void Server::ClearClients(int fd)
 {
     RemoveClientFromAllChannels(fd);
-    
+
     for (size_t i = 0; i < this->_pollFds.size(); i++)
     {
         if (this->_pollFds[i].fd == fd)
@@ -25,13 +25,13 @@ void Server::ClearClients(int fd)
         }
     }
 }
-void    Server::HandleSignal(int signum)
+void Server::HandleSignal(int signum)
 {
     (void)signum;
     Server::_Signal = true;
 }
 
-void    Server::ServerInit(int port, std::string password)
+void Server::ServerInit(int port, std::string password)
 {
     this->_ServerPort = port;
     this->_ServerPassword = password;
@@ -57,7 +57,7 @@ void    Server::ServerInit(int port, std::string password)
     closeFds();
 }
 
-void    Server::ServerSocketCreation(void)
+void Server::ServerSocketCreation(void)
 {
     struct sockaddr_in ServerAdress;
     struct pollfd Polls;
@@ -88,8 +88,8 @@ void Server::AcceptNewClient()
 {
     Client *client = new Client();
     struct sockaddr_in clientAdress;
-    struct pollfd   clientPollFd;
-    socklen_t       len = sizeof(clientAdress);
+    struct pollfd clientPollFd;
+    socklen_t len = sizeof(clientAdress);
 
     int clientSocket = accept(this->_ServerSocket, (sockaddr *)&clientAdress, &len);
     if (clientSocket == -1)
@@ -128,7 +128,7 @@ void Server::ReceiveNewData(int fd)
         buffer[receivedBytes] = '\0';
         Client *client = this->GetClientByFd(fd);
         if (!client)
-            return ;
+            return;
         client->appendBuffer(std::string(buffer));
         std::vector<std::string> lines = this->SplitMessage(client->getBuffer());
         for (size_t i = 0; i < lines.size(); i++)
@@ -147,7 +147,7 @@ void Server::ReceiveNewData(int fd)
     }
 }
 
-void    Server::HandleClientMessage(int fd, std::string message)
+void Server::HandleClientMessage(int fd, std::string message)
 {
     size_t spacePos = message.find(' ');
     std::string command;
@@ -172,7 +172,7 @@ void    Server::HandleClientMessage(int fd, std::string message)
     else if (command == "JOIN")
         HandleJoinCommand(fd, args);
     else if (command == "CAP")
-        return ;
+        return;
     else if (command == "PING")
     {
         if (args.empty())
@@ -184,20 +184,22 @@ void    Server::HandleClientMessage(int fd, std::string message)
         HandlePrivmsgCommand(fd, args);
     else if (command == "KICK")
         HandleKickCommand(fd, args);
+    else if (command == "INVITE")
+        HandleInviteCommand(fd, args);
     else
         SendToClient(fd, ":server 421 * " + command + " :Unknown command");
 }
 
-void    Server::HandlePassCommand(int fd, std::string args)
+void Server::HandlePassCommand(int fd, std::string args)
 {
     Client *client = GetClientByFd(fd);
 
     if (!client)
-        return ;
+        return;
     if (client->isAuthenticated())
     {
         SendToClient(fd, ":server 462 * :You may not reregister");
-        return ;
+        return;
     }
     if (args == this->_ServerPassword)
     {
@@ -210,9 +212,8 @@ void    Server::HandlePassCommand(int fd, std::string args)
         std::cout << "Client authentification failed\n";
         ClearClients(fd);
         close(fd);
-        return ;
+        return;
     }
-
 }
 
 void Server::HandleNickCommand(int fd, std::string args)
@@ -225,7 +226,7 @@ void Server::HandleNickCommand(int fd, std::string args)
         SendToClient(fd, ":server 451 * :You have not registered");
         ClearClients(fd);
         close(fd);
-        return ;
+        return;
     }
     if (args.empty())
     {
@@ -250,17 +251,17 @@ void Server::HandleNickCommand(int fd, std::string args)
     }
 }
 
-void   Server::HandleUserCommand(int fd, std::string args)
+void Server::HandleUserCommand(int fd, std::string args)
 {
     Client *client = GetClientByFd(fd);
     if (!client)
-        return ;
+        return;
     if (!client->isAuthenticated())
     {
         SendToClient(fd, ":server 451 * :You have not registered");
         ClearClients(fd);
         close(fd);
-        return ;
+        return;
     }
     std::istringstream iss(args);
     std::string username, mode, unusedParam, realname;

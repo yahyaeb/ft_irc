@@ -15,21 +15,21 @@ Channel::~Channel() {};
 std::string Channel::getName() const { return _channelName; }
 std::string Channel::getTopic() const { return _channelTopic; }
 std::string Channel::getPassword() const { return _channelPassword; }
-std::vector<Client*> Channel::getClients() const { return _clientsInChannel; }
+std::vector<Client *> Channel::getClients() const { return _clientsInChannel; }
 size_t Channel::getUserLimit() const { return _userLimit; }
 bool Channel::isInviteOnly() const { return _inviteOnly; }
 bool Channel::isTopicRestricted() const { return _topicRestricted; }
 bool Channel::hasPassword() const { return _hasPassword; }
 bool Channel::hasUserLimit() const { return _hasUserLimit; }
 
-bool Channel::isOperator(int fd) const 
-{ 
-    return _operators.find(fd) != _operators.end(); 
+bool Channel::isOperator(int fd) const
+{
+    return _operators.find(fd) != _operators.end();
 }
 
-bool Channel::isInvited(int fd) const 
-{ 
-    return _invitedClients.find(fd) != _invitedClients.end(); 
+bool Channel::isInvited(int fd) const
+{
+    return _invitedClients.find(fd) != _invitedClients.end();
 }
 
 bool Channel::isMember(int fd) const
@@ -44,28 +44,28 @@ bool Channel::isMember(int fd) const
 
 void Channel::setTopic(std::string topic) { _channelTopic = topic; }
 
-void Channel::setPassword(std::string password) 
-{ 
+void Channel::setPassword(std::string password)
+{
     _channelPassword = password;
-    _hasPassword = !password.empty(); 
+    _hasPassword = !password.empty();
 }
 
 void Channel::setInviteOnly(bool value) { _inviteOnly = value; }
 void Channel::setTopicRestricted(bool value) { _topicRestricted = value; }
 
-void Channel::setUserLimit(size_t limit) 
-{ 
+void Channel::setUserLimit(size_t limit)
+{
     _userLimit = limit;
-    _hasUserLimit = true; 
+    _hasUserLimit = true;
 }
 
-void Channel::removeUserLimit() 
-{ 
+void Channel::removeUserLimit()
+{
     _userLimit = 0;
     _hasUserLimit = false;
 }
 
-void Channel::addClient(Client* client)
+void Channel::addClient(Client *client)
 {
     _clientsInChannel.push_back(client);
 }
@@ -84,9 +84,9 @@ void Channel::removeClient(int fd)
     _invitedClients.erase(fd);
 }
 
-void Channel::addOperator(int fd) 
-{ 
-    _operators.insert(fd); 
+void Channel::addOperator(int fd)
+{
+    _operators.insert(fd);
 }
 
 void Channel::removeOperator(int fd)
@@ -94,21 +94,21 @@ void Channel::removeOperator(int fd)
     _operators.erase(fd);
 }
 
-void Channel::addInvited(int fd) 
-{ 
-    _invitedClients.insert(fd); 
+void Channel::addInvited(int fd)
+{
+    _invitedClients.insert(fd);
 }
 
-void Channel::removeInvited(int fd) 
-{ 
-    _invitedClients.erase(fd); 
+void Channel::removeInvited(int fd)
+{
+    _invitedClients.erase(fd);
 }
 
 void Channel::broadcastToChannel(std::string message, int excludeFd)
 {
     for (size_t i = 0; i < _clientsInChannel.size(); i++)
     {
-        if (_clientsInChannel[i]->getFd() != excludeFd) //excludefd c'est l'emetteur du message au cas ou
+        if (_clientsInChannel[i]->getFd() != excludeFd) // excludefd c'est l'emetteur du message au cas ou
         {
             std::string fullMessage = message + "\r\n";
             send(_clientsInChannel[i]->getFd(), fullMessage.c_str(), fullMessage.length(), 0);
@@ -145,8 +145,7 @@ Channel *Server::GetChannelByName(std::string name)
     return NULL;
 }
 
-
-void    Server::RemoveChannelIfEmpty(std::string name)
+void Server::RemoveChannelIfEmpty(std::string name)
 {
     Channel *channel = GetChannelByName(name);
 
@@ -158,11 +157,11 @@ void    Server::RemoveChannelIfEmpty(std::string name)
     }
 }
 
-void    Server::RemoveClientFromAllChannels(int fd)
+void Server::RemoveClientFromAllChannels(int fd)
 {
     std::map<std::string, Channel *>::iterator it;
     std::vector<std::string> channelsToCheck;
-    
+
     for (it = this->ChannelMap.begin(); it != this->ChannelMap.end(); ++it)
     {
         if (it->second->isMember(fd))
@@ -177,7 +176,7 @@ void    Server::RemoveClientFromAllChannels(int fd)
             channelsToCheck.push_back(it->first);
         }
     }
-    
+
     for (size_t i = 0; i < channelsToCheck.size(); i++)
     {
         RemoveChannelIfEmpty(channelsToCheck[i]);
