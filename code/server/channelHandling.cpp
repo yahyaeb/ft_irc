@@ -254,15 +254,20 @@ void Server::HandleTopicCommand(int fd, std::string args)
 {
     Client *client = GetClientByFd(fd);
     if (!client)
-        return ;
-    std::istringstream iss(args);
-    std::string channelName, newTopic;
-
-    iss >> channelName;
-    std::getline(iss, newTopic);
-    if (!newTopic.empty() && newTopic[0] == ':')
-        newTopic.substr(1);
-        if (channelName.empty())
+        return;
+    size_t space = args.find(' ');
+    std::string channelName;
+    std::string newTopic;
+    if (space == std::string::npos)
+        channelName = args;
+    else
+    {
+        channelName = args.substr(0, space);
+        newTopic = args.substr(space + 1);
+        if (!newTopic.empty() && newTopic[0] == ':')
+            newTopic.substr(1);
+    }
+    if (channelName.empty())
     {
         SendToClient(fd, "461 TOPIC :Not enough parameters");
         return;
@@ -281,13 +286,9 @@ void Server::HandleTopicCommand(int fd, std::string args)
     if (newTopic.empty())
     {
         if (channel->getTopic().empty())
-        {
             SendToClient(fd, "331 " + client->getNickname() + " " + channelName + " :No topic is set");
-        }
         else
-        {
             SendToClient(fd, "332 " + client->getNickname() + " " + channelName + " :" + channel->getTopic());
-        }
         return;
     }
     if (channel->isTopicRestricted() && !channel->isOperator(fd))
@@ -299,4 +300,177 @@ void Server::HandleTopicCommand(int fd, std::string args)
     std::string topicMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost TOPIC " + channelName + " :" + newTopic;
     channel->broadcastToChannel(topicMsg, -1);
     std::cout << client->getNickname() << " changed topic of " << channelName << " to: " << newTopic << std::endl;
+}
+
+void Server::HandleModeCommand(int fd, std::string args)
+{
+    Client *client = GetClientByFd(fd);
+    if (!client)
+        return;
+    if (!client->isRegistered())
+    {
+        SendToClient(fd, "451 :You have not registered");
+        return;
+    }
+    std::istringstream iss(args);
+    std::string channelName, modeString, modeParam;
+    iss >> channelName >> modeString >> modeParam;
+    if (channelName.empty())
+    {
+        SendToClient(fd, "461 MODE :Not enough parameters");
+        return;
+    }
+    Channel *channel = GetChannelByName(channelName);
+    if (!channel)
+    {
+        SendToClient(fd, "403 " + channelName + " :No such channel");
+        return;
+    }
+    if (modeString.empty())
+    {
+        std::string modes = "+";
+        if (channel->isInviteOnly())
+            modes += "i";
+        if (channel->isTopicRestricted())
+            modes += "t";
+        if (channel->hasPassword())
+            modes += "k";
+        if (channel->hasUserLimit())
+            modes += "l";
+        SendToClient(fd, "324 " + client->getNickname() + " " + channelName + " " + modes);
+        return;
+    }
+    if (!channel->isOperator(fd))
+    {
+        SendToClient(fd, "482 " + channelName + " :You're not channel operator");
+        return;
+    }
+    bool adding = true;
+    std::string appliedModes;
+    std::string modeParams;
+
+    for (size_t i = 0; i < modeString.length(); i++)
+    {
+        char mode = modeString[i];
+
+        if (mode == '+')
+        {
+            adding = true;
+            continue;
+        }
+        else if (mode == '-')
+        {
+            adding = false;
+            continue;
+        }
+        if (mode == 'i')
+        {
+            channel->setInviteOnly(adding);
+            if (adding)
+                appliedModes += "+";
+            else
+                appliedModes += "-";
+            appliedModes += "i";
+        }
+        else if (mode == 't')
+        {
+            channel->setTopicRestricted(adding);
+            if (adding)
+                appliedModes += "+";
+            else
+                appliedModes += "-";
+            appliedModes += "t";
+        }
+        else if (mode == 'k')
+        {
+            if (adding)
+            {
+                if (modeParam.empty())
+                {
+                    SendToClient(fd, "461 MODE :Not enough parameters");
+                    return;
+                }
+                channel->setPassword(modeParam);
+                appliedModes += "+k";
+                modeParams += " " + modeParam;
+            }
+            else
+            {
+                channel->setPassword("");
+                appliedModes += "-k";
+            }
+        }
+        else if (mode == 'o')
+        {
+            if (modeParam.empty())
+            {
+                SendToClient(fd, "461 MODE :Not enough parameters");
+                return;
+            }
+
+            Client *targetClient = GetClientByNickname(modeParam);
+            if (!targetClient)
+            {
+                SendToClient(fd, "401 " + modeParam + " :No such nick/channel");
+                return;
+            }
+
+            if (!channel->isMember(targetClient->getFd()))
+            {
+                SendToClient(fd, "441 " + modeParam + " " + channelName + " :They aren't on that channel");
+                return;
+            }
+
+            if (adding)
+            {
+                channel->addOperator(targetClient->getFd());
+                appliedModes += "+";
+            }
+            else
+            {
+                channel->removeOperator(targetClient->getFd());
+                appliedModes += "-";
+            }
+            appliedModes += "o";
+            modeParams += " " + modeParam;
+        }
+        else if (mode == 'l')
+        {
+            if (adding)
+            {
+                if (modeParam.empty())
+                {
+                    SendToClient(fd, "461 MODE :Not enough parameters");
+                    return;
+                }
+
+                int limit = atoi(modeParam.c_str());
+                if (limit <= 0)
+                {
+                    SendToClient(fd, "696 " + channelName + " l :Invalid limit");
+                    return;
+                }
+
+                channel->setUserLimit(limit);
+                appliedModes += "+l";
+                modeParams += " " + modeParam;
+            }
+            else
+            {
+                channel->removeUserLimit();
+                appliedModes += "-l";
+            }
+        }
+        else
+        {
+            std::string unknownMode;
+            unknownMode += mode;
+            SendToClient(fd, "472 " + unknownMode + " :is unknown mode char to me");
+        }
+    }
+    if (!appliedModes.empty())
+    {
+        std::string modeMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost MODE " + channelName + " " + appliedModes + modeParams;
+        channel->broadcastToChannel(modeMsg, -1);
+    }
 }
