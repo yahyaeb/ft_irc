@@ -5,6 +5,8 @@ bool Server::_Signal = false;
 
 void Server::ClearClients(int fd)
 {
+    RemoveClientFromAllChannels(fd);
+    
     for (size_t i = 0; i < this->_pollFds.size(); i++)
     {
         if (this->_pollFds[i].fd == fd)
@@ -15,8 +17,9 @@ void Server::ClearClients(int fd)
     }
     for (size_t i = 0; i < this->_ServerClients.size(); i++)
     {
-        if (this->_ServerClients[i].getFd() == fd)
+        if (this->_ServerClients[i]->getFd() == fd)
         {
+            delete this->_ServerClients[i];
             this->_ServerClients.erase(this->_ServerClients.begin() + i);
             break;
         }
@@ -83,7 +86,7 @@ void    Server::ServerSocketCreation(void)
 
 void Server::AcceptNewClient()
 {
-    Client client;
+    Client *client = new Client();
     struct sockaddr_in clientAdress;
     struct pollfd   clientPollFd;
     socklen_t       len = sizeof(clientAdress);
@@ -97,8 +100,8 @@ void Server::AcceptNewClient()
     clientPollFd.events = POLLIN;
     clientPollFd.revents = 0;
 
-    client.setFd(clientSocket);
-    client.setIp(inet_ntoa(clientAdress.sin_addr));
+    client->setFd(clientSocket);
+    client->setIp(inet_ntoa(clientAdress.sin_addr));
 
     this->_ServerClients.push_back(client);
     this->_pollFds.push_back(clientPollFd);
@@ -177,6 +180,8 @@ void    Server::HandleClientMessage(int fd, std::string message)
         else
             SendToClient(fd, "PONG " + args);
     }
+    else if (command == "PRIVMSG")
+        HandlePrivmsgCommand(fd, args);
     else
         SendToClient(fd, ":server 421 * " + command + " :Unknown command");
 }
@@ -227,11 +232,8 @@ void Server::HandleNickCommand(int fd, std::string args)
     }
     for (size_t i = 0; i < this->_ServerClients.size(); i++)
     {
-        if (this->_ServerClients[i].getNickname() == args && this->_ServerClients[i].getFd() != fd)
+        if (this->_ServerClients[i]->getNickname() == args && this->_ServerClients[i]->getFd() != fd)
         {
-            srand(time(NULL));
-            char suffix = 'A' + rand()%26;
-            this->_ServerClients[i].setNickname(this->_ServerClients[i].getNickname() + suffix);
             SendToClient(fd, ":server 433 * " + args + " :Nickname is already in use");
             return;
         }
@@ -313,7 +315,7 @@ void Server::HandleJoinCommand(int fd, std::string args)
             SendToClient(fd, ":server 443 " + client->getNickname() + " " + channelName + " :is already on channel");
             return;
         }
-        if (channel->isInviteOnly() && !channel->isMember(fd))
+        if (channel->isInviteOnly() && !channel->isInvited(fd))
         {
             SendToClient(fd, ":server 473 " + client->getNickname() + " " + channelName + " :Cannot join channel (+i)");
             return ;
@@ -328,8 +330,8 @@ void Server::HandleJoinCommand(int fd, std::string args)
             SendToClient(fd, ":server 471 " + client->getNickname() + " " + channelName + " :Cannot join channel (+l)");
             return ;
         }
+        channel->addClient(client);
     }
-    channel->addClient(client);
     if (channel->isInvited(fd))
         channel->removeInvited(fd);
     std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost JOIN " + channelName;
@@ -381,5 +383,36 @@ void    Server::HandlePrivmsgCommand(int fd, std::string args)
         return ;
     }
     message = message.substr(1); //enlever les : avant le message
-    
+    if (messageTarget[0] == '#')
+    {
+        Channel *channel = GetChannelByName(messageTarget);
+        if (!channel)
+        {
+            SendToClient(fd, "403" + messageTarget + ":No such channel");
+            return ;
+        }
+        if (!channel->isMember(fd))
+        {
+            SendToClient(fd, "404" + messageTarget + ":Cannot send to channel");
+            return ;
+        }
+        std::string fullMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost PRIVMSG " + messageTarget + " :" + message;
+        channel->broadcastToChannel(fullMsg, fd);
+        
+        std::cout << "PRIVMSG to channel " << messageTarget << " from " << client->getNickname() << ": " << message << std::endl;
+    }
+    else
+    {
+        Client *targetClient = GetClientByNickname(messageTarget);
+        
+        if (!targetClient)
+        {
+            SendToClient(fd, "401 " + messageTarget + " :No such nick/channel");
+            return;
+        }
+        std::string fullMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost PRIVMSG " + messageTarget + " :" + message;
+        SendToClient(targetClient->getFd(), fullMsg);
+        std::cout << "PRIVMSG from " << client->getNickname() << " to " << messageTarget << ": " << message << std::endl;
+    }
 }
+

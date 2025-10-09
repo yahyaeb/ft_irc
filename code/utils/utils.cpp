@@ -32,7 +32,10 @@ bool parsePortAndPswd(char *port, char *password)
 void    Server::closeFds()
 {
     for (size_t i = 0; i < this->_ServerClients.size(); i++)
-        close(this->_ServerClients[i].getFd());
+    {
+        close(this->_ServerClients[i]->getFd());
+        delete this->_ServerClients[i];
+    }
     if (this->_ServerSocket != -1)
         close (this->_ServerSocket);
 }
@@ -41,8 +44,8 @@ Client *Server::GetClientByFd(int fd)
 {
     for (size_t i = 0; i < this->_ServerClients.size(); i++)
     {
-        if (this->_ServerClients[i].getFd() == fd)
-            return &this->_ServerClients[i];
+        if (this->_ServerClients[i]->getFd() == fd)
+            return this->_ServerClients[i];
     }
     return NULL;
 }

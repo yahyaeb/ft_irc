@@ -106,7 +106,7 @@ class Server
     int _ServerSocket;
     std::string _ServerPassword;
     bool static _Signal;
-    std::vector<Client> _ServerClients;
+    std::vector<Client*> _ServerClients;
     std::vector<struct pollfd> _pollFds;
     std::map<std::string, Channel *> ChannelMap; //nom du channel = channel;
 
@@ -139,6 +139,7 @@ class Server
     Channel* GetChannelByName(std::string name);
     Channel* CreateChannel(std::string name, Client* creator);
     void    RemoveChannelIfEmpty(std::string name);
+    void    RemoveClientFromAllChannels(int fd);
 };
 
 

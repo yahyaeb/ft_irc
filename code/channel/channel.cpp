@@ -131,8 +131,8 @@ Client *Server::GetClientByNickname(std::string nickname)
 {
     for (size_t i = 0; i < this->_ServerClients.size(); i++)
     {
-        if (this->_ServerClients[i].getNickname() == nickname)
-            return &this->_ServerClients[i];
+        if (this->_ServerClients[i]->getNickname() == nickname)
+            return this->_ServerClients[i];
     }
     return NULL;
 }
@@ -150,10 +150,36 @@ void    Server::RemoveChannelIfEmpty(std::string name)
 {
     Channel *channel = GetChannelByName(name);
 
-    if (channel->getClients().empty())
+    if (channel && channel->getClients().empty())
     {
         delete channel;
         this->ChannelMap.erase(name);
-        std::cout << "The " << channel->getName() << " channel has been erased\n";
+        std::cout << "The " << name << " channel has been erased\n";
+    }
+}
+
+void    Server::RemoveClientFromAllChannels(int fd)
+{
+    std::map<std::string, Channel *>::iterator it;
+    std::vector<std::string> channelsToCheck;
+    
+    for (it = this->ChannelMap.begin(); it != this->ChannelMap.end(); ++it)
+    {
+        if (it->second->isMember(fd))
+        {
+            Client *client = GetClientByFd(fd);
+            if (client)
+            {
+                std::string partMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost QUIT :Client disconnected";
+                it->second->broadcastToChannel(partMsg, fd);
+            }
+            it->second->removeClient(fd);
+            channelsToCheck.push_back(it->first);
+        }
+    }
+    
+    for (size_t i = 0; i < channelsToCheck.size(); i++)
+    {
+        RemoveChannelIfEmpty(channelsToCheck[i]);
     }
 }
