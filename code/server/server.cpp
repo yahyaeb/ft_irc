@@ -176,12 +176,14 @@ void    Server::HandleClientMessage(int fd, std::string message)
     else if (command == "PING")
     {
         if (args.empty())
-            SendToClient(fd, "PONG");
+            SendToClient(fd, "PONG :");
         else
-            SendToClient(fd, "PONG " + args);
+            SendToClient(fd, "PONG :" + args);
     }
     else if (command == "PRIVMSG")
         HandlePrivmsgCommand(fd, args);
+    else if (command == "KICK")
+        HandleKickCommand(fd, args);
     else
         SendToClient(fd, ":server 421 * " + command + " :Unknown command");
 }
@@ -279,140 +281,3 @@ void   Server::HandleUserCommand(int fd, std::string args)
         std::cout << "Client <" << fd << "> is now registered!\n";
     }
 }
-
-void Server::HandleJoinCommand(int fd, std::string args)
-{
-    Client *client = GetClientByFd(fd);
-
-    if (!client)
-        return ;
-    if (!client->isRegistered())
-    {
-        SendToClient(fd, ":server 451 * :You have not registered");
-        return ;
-    }
-    std::istringstream iss(args);
-    std::string channelName, channelPassword;
-    iss >> channelName >> channelPassword;
-
-    if (channelName.empty() || channelName[0] != '#')
-    {
-        SendToClient(fd, ":server 403 " + client->getNickname() + " " + channelName + " :No such channel");
-        return ;
-    }
-
-    Channel *channel = GetChannelByName(channelName);
-
-    if (!channel)
-    {
-        channel = CreateChannel(channelName, client);
-        std::cout << "client: " << client->getUsername() << "created the: " << channel->getName() << " channel" << std::endl;
-    }
-    else
-    {
-        if (channel->isMember(fd))
-        {
-            SendToClient(fd, ":server 443 " + client->getNickname() + " " + channelName + " :is already on channel");
-            return;
-        }
-        if (channel->isInviteOnly() && !channel->isInvited(fd))
-        {
-            SendToClient(fd, ":server 473 " + client->getNickname() + " " + channelName + " :Cannot join channel (+i)");
-            return ;
-        }
-        if (channel->hasPassword() && channel->getPassword() != channelPassword)
-        {
-            SendToClient(fd, ":server 475 " + client->getNickname() + " " + channelName + " :Cannot join channel (+k)");
-            return ;
-        }
-        if (channel->hasUserLimit() && channel->getClients().size() >= channel->getUserLimit())
-        {
-            SendToClient(fd, ":server 471 " + client->getNickname() + " " + channelName + " :Cannot join channel (+l)");
-            return ;
-        }
-        channel->addClient(client);
-    }
-    if (channel->isInvited(fd))
-        channel->removeInvited(fd);
-    std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost JOIN " + channelName;
-    channel->broadcastToChannel(joinMsg, -1);
-    if (!channel->getTopic().empty())
-    {
-        SendToClient(fd, ":server 332 " + client->getNickname() + " " + channelName + " :" + channel->getTopic());
-    }
-    else
-    {
-        SendToClient(fd, ":server 331 " + client->getNickname() + " " + channelName + " :No topic is set");
-    }
-    std::string userList = "353 " + client->getNickname() + " = " + channelName + " :";
-    std::vector<Client*> clients = channel->getClients();
-    for (size_t i = 0; i < clients.size(); i++)
-    {
-        if (channel->isOperator(clients[i]->getFd()))
-            userList += "@";
-        userList += clients[i]->getNickname();
-        if (i < clients.size() - 1)
-            userList += " ";
-    }
-    SendToClient(fd, ":server " + userList);
-    SendToClient(fd, ":server 366 " + client->getNickname() + " " + channelName + " :End of /NAMES list");
-    std::cout << "Client <" << fd << "> (" << client->getNickname() << ") joined " << channelName << std::endl;
-}
-
-void    Server::HandlePrivmsgCommand(int fd, std::string args)
-{
-    Client  *client = GetClientByFd(fd);
-    if (!client)
-        return ;
-    if (!client->isRegistered())
-    {
-        SendToClient(fd, ":server 451 * :You have not registered");
-        return ;
-    }
-    size_t space = args.find(' ');
-    if (space == std::string::npos)
-    {
-        SendToClient(fd, "411 :No recipient given (PRIVMSG)");
-        return;
-    }
-    std::string messageTarget = args.substr(0, space);
-    std::string message = args.substr(space + 1);
-    if (message.empty() || message[0] != ':')
-    {
-        SendToClient(fd, "412 :No text to send");
-        return ;
-    }
-    message = message.substr(1); //enlever les : avant le message
-    if (messageTarget[0] == '#')
-    {
-        Channel *channel = GetChannelByName(messageTarget);
-        if (!channel)
-        {
-            SendToClient(fd, "403" + messageTarget + ":No such channel");
-            return ;
-        }
-        if (!channel->isMember(fd))
-        {
-            SendToClient(fd, "404" + messageTarget + ":Cannot send to channel");
-            return ;
-        }
-        std::string fullMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost PRIVMSG " + messageTarget + " :" + message;
-        channel->broadcastToChannel(fullMsg, fd);
-        
-        std::cout << "PRIVMSG to channel " << messageTarget << " from " << client->getNickname() << ": " << message << std::endl;
-    }
-    else
-    {
-        Client *targetClient = GetClientByNickname(messageTarget);
-        
-        if (!targetClient)
-        {
-            SendToClient(fd, "401 " + messageTarget + " :No such nick/channel");
-            return;
-        }
-        std::string fullMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost PRIVMSG " + messageTarget + " :" + message;
-        SendToClient(targetClient->getFd(), fullMsg);
-        std::cout << "PRIVMSG from " << client->getNickname() << " to " << messageTarget << ": " << message << std::endl;
-    }
-}
-
