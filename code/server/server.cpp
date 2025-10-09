@@ -186,6 +186,8 @@ void Server::HandleClientMessage(int fd, std::string message)
         HandleKickCommand(fd, args);
     else if (command == "INVITE")
         HandleInviteCommand(fd, args);
+    else if (command == "TOPIC")
+        HandleTopicCommand(fd, args);
     else
         SendToClient(fd, ":server 421 * " + command + " :Unknown command");
 }

@@ -249,3 +249,54 @@ void Server::HandleInviteCommand(int fd, std::string args)
     SendToClient(targetClient->getFd(), inviteMsg);
     std::cout << client->getNickname() << " invited " << targetNick << " to " << channelName << std::endl;
 }
+
+void Server::HandleTopicCommand(int fd, std::string args)
+{
+    Client *client = GetClientByFd(fd);
+    if (!client)
+        return ;
+    std::istringstream iss(args);
+    std::string channelName, newTopic;
+
+    iss >> channelName;
+    std::getline(iss, newTopic);
+    if (!newTopic.empty() && newTopic[0] == ':')
+        newTopic.substr(1);
+        if (channelName.empty())
+    {
+        SendToClient(fd, "461 TOPIC :Not enough parameters");
+        return;
+    }
+    Channel *channel = GetChannelByName(channelName);
+    if (!channel)
+    {
+        SendToClient(fd, "403 " + channelName + " :No such channel");
+        return;
+    }
+    if (!channel->isMember(fd))
+    {
+        SendToClient(fd, "442 " + channelName + " :You're not on that channel");
+        return;
+    }
+    if (newTopic.empty())
+    {
+        if (channel->getTopic().empty())
+        {
+            SendToClient(fd, "331 " + client->getNickname() + " " + channelName + " :No topic is set");
+        }
+        else
+        {
+            SendToClient(fd, "332 " + client->getNickname() + " " + channelName + " :" + channel->getTopic());
+        }
+        return;
+    }
+    if (channel->isTopicRestricted() && !channel->isOperator(fd))
+    {
+        SendToClient(fd, "482 " + channelName + " :You're not channel operator");
+        return;
+    }
+    channel->setTopic(newTopic);
+    std::string topicMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost TOPIC " + channelName + " :" + newTopic;
+    channel->broadcastToChannel(topicMsg, -1);
+    std::cout << client->getNickname() << " changed topic of " << channelName << " to: " << newTopic << std::endl;
+}
