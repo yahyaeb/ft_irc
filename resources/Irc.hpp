@@ -119,8 +119,6 @@ public:
     static void HandleSignal(int signum);
     void closeFds();
     void ClearClients(int fd);
-    void HandleClientOutput(char *buffer);
-
     void HandleClientMessage(int fd, std::string message);
     void HandlePassCommand(int fd, std::string args);
     void HandleNickCommand(int fd, std::string args);
@@ -140,7 +138,13 @@ public:
     Channel *CreateChannel(std::string name, Client *creator);
     void RemoveChannelIfEmpty(std::string name);
     void RemoveClientFromAllChannels(int fd);
-};
+    void iMode(Channel *channel, bool adding, std::string appliedModes);
+    void    tMode(Channel *channel, bool adding, std::string appliedModes);
+    void    kMode(int fd,Channel *channel, bool adding, std::string appliedModes, std::string modeParam, std::string modeParams);
+    void    oMode(int fd, Channel *channel, bool adding, std::string appliedModes, std::string modeParam, std::string modeParams, std::string ChannelName);
+    void    lMode(int fd, Channel *channel, bool adding, std::string appliedModes, std::string modeParam, std::string modeParams, std::string channelName);
 
+};
 bool parsePortAndPswd(char *port, char *password);
+
 #endif

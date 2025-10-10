@@ -1,4 +1,5 @@
-SRCS = code/main.cpp code/utils/utils.cpp code/server/server.cpp code/client/client.cpp code/channel/channel.cpp code/server/channelHandling.cpp
+SRCS = code/main.cpp code/utils/utils.cpp code/server/server.cpp code/client/client.cpp code/channel/channel.cpp code/server/channelHandling.cpp \
+code/server/modesHandling.cpp
 
 OBJS = ${SRCS:.cpp=.o}
 
