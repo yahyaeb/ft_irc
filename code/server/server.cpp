@@ -187,7 +187,7 @@ void Server::HandleClientMessage(int fd, std::string message)
     else if (command == "INVITE")
         HandleInviteCommand(fd, args);
     else if (command == "TOPIC")
-        HandleTopicCommand(fd, args);
+        HandleTopicCommand(fd, args, command);
     else if (command == "MODE")
         HandleModeCommand(fd, args);
     else

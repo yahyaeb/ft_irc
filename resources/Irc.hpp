@@ -127,7 +127,7 @@ public:
     void HandlePrivmsgCommand(int fd, std::string args);
     void HandleKickCommand(int fd, std::string args);
     void HandleInviteCommand(int fd, std::string args);
-    void HandleTopicCommand(int fd, std::string args);
+    void HandleTopicCommand(int fd, std::string args, std::string command);
     void HandleModeCommand(int fd, std::string args);
 
     void SendToClient(int fd, std::string message);

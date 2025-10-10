@@ -250,8 +250,9 @@ void Server::HandleInviteCommand(int fd, std::string args)
     std::cout << client->getNickname() << " invited " << targetNick << " to " << channelName << std::endl;
 }
 
-void Server::HandleTopicCommand(int fd, std::string args)
+void Server::HandleTopicCommand(int fd, std::string args, std::string command)
 {
+    (void)command;
     Client *client = GetClientByFd(fd);
     if (!client)
         return;
@@ -266,6 +267,12 @@ void Server::HandleTopicCommand(int fd, std::string args)
         newTopic = args.substr(space + 1);
         if (!newTopic.empty() && newTopic[0] == ':')
             newTopic.substr(1);
+        if (newTopic[0] == ':' && newTopic[1] == ' ')
+        {
+            SendToClient(fd, "461" + client->getNickname() + ' ' + args + " :leading spaces are not allowed");
+            return ;
+        }
+
     }
     if (channelName.empty())
     {
