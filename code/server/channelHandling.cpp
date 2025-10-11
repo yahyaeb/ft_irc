@@ -22,11 +22,7 @@ void Server::HandleJoinCommand(int fd, std::string args)
     };
     int count = std::count(channelName.begin(), channelName.end(), '#');
     if (count > 1)
-    {
-        // SendToClient(fd, ":server 405 " + client->getNickname() + " " + channelName + " :You have joined too many channels");
-        // return ;
         multipleChannels(fd, channelName, channelPassword);
-    }
     else
     {
         Channel *channel = GetChannelByName(channelName);
@@ -94,7 +90,7 @@ void Server::multipleChannels(int fd, std::string channelName, std::string chann
     std::vector<std::string> splitPasswords = SplitChannels(channelPassword);
     if (splitChannels.empty())
         throw(std::runtime_error("Error: could not split channels/passwords\n"));
-    
+
     for (size_t i = 0; i < splitChannels.size(); i++)
     {
         std::string args = splitChannels[i];
@@ -103,8 +99,6 @@ void Server::multipleChannels(int fd, std::string channelName, std::string chann
         HandleJoinCommand(fd, args);
     }
 }
-
-
 
 void Server::HandlePrivmsgCommand(int fd, std::string args)
 {
@@ -297,9 +291,8 @@ void Server::HandleTopicCommand(int fd, std::string args, std::string command)
         if (newTopic[0] == ':' && newTopic[1] == ' ')
         {
             SendToClient(fd, "461" + client->getNickname() + ' ' + args + " :leading spaces are not allowed");
-            return ;
+            return;
         }
-
     }
     if (channelName.empty())
     {

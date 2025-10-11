@@ -68,9 +68,15 @@ std::vector<std::string> Server::SplitMessage(std::string message)
             if (!line.empty())
                 lines.push_back(line);
             line.clear();
-            i++; // sauter le \n
+            i++; // saute le /n
         }
-        else
+        else if (message[i] == '\n') // netcat fix
+        {
+            if (!line.empty())
+                lines.push_back(line);
+            line.clear();
+        }
+        else if (message[i] != '\r')
             line += message[i];
     }
     return lines;
