@@ -17,6 +17,7 @@
 #include <map>
 #include <time.h>
 #include <unordered_set>
+#include <algorithm>
 
 class Client
 {
@@ -138,12 +139,8 @@ public:
     Channel *CreateChannel(std::string name, Client *creator);
     void RemoveChannelIfEmpty(std::string name);
     void RemoveClientFromAllChannels(int fd);
-    void iMode(Channel *channel, bool adding, std::string appliedModes);
-    void    tMode(Channel *channel, bool adding, std::string appliedModes);
-    void    kMode(int fd,Channel *channel, bool adding, std::string appliedModes, std::string modeParam, std::string modeParams);
-    void    oMode(int fd, Channel *channel, bool adding, std::string appliedModes, std::string modeParam, std::string modeParams, std::string ChannelName);
-    void    lMode(int fd, Channel *channel, bool adding, std::string appliedModes, std::string modeParam, std::string modeParams, std::string channelName);
-
+    void multipleChannels(int fd, std::string channelName, std::string channelPassword);
+    std::vector<std::string> SplitChannels(std::string channelName);
 };
 bool parsePortAndPswd(char *port, char *password);
 

@@ -19,65 +19,92 @@ void Server::HandleJoinCommand(int fd, std::string args)
     {
         SendToClient(fd, ":server 403 " + client->getNickname() + " " + channelName + " :No such channel");
         return;
-    }
-
-    Channel *channel = GetChannelByName(channelName);
-
-    if (!channel)
+    };
+    int count = std::count(channelName.begin(), channelName.end(), '#');
+    if (count > 1)
     {
-        channel = CreateChannel(channelName, client);
-        std::cout << "client: " << client->getUsername() << "created the: " << channel->getName() << " channel" << std::endl;
+        // SendToClient(fd, ":server 405 " + client->getNickname() + " " + channelName + " :You have joined too many channels");
+        // return ;
+        multipleChannels(fd, channelName, channelPassword);
     }
     else
     {
-        if (channel->isMember(fd))
+        Channel *channel = GetChannelByName(channelName);
+
+        if (!channel)
         {
-            SendToClient(fd, ":server 443 " + client->getNickname() + " " + channelName + " :is already on channel");
-            return;
+            channel = CreateChannel(channelName, client);
+            std::cout << "client: " << client->getUsername() << "created the: " << channel->getName() << " channel" << std::endl;
         }
-        if (channel->isInviteOnly() && !channel->isInvited(fd))
+        else
         {
-            SendToClient(fd, ":server 473 " + client->getNickname() + " " + channelName + " :Cannot join channel (+i)");
-            return;
+            if (channel->isMember(fd))
+            {
+                SendToClient(fd, ":server 443 " + client->getNickname() + " " + channelName + " :is already on channel");
+                return;
+            }
+            if (channel->isInviteOnly() && !channel->isInvited(fd))
+            {
+                SendToClient(fd, ":server 473 " + client->getNickname() + " " + channelName + " :Cannot join channel (+i)");
+                return;
+            }
+            if (channel->hasPassword() && channel->getPassword() != channelPassword)
+            {
+                SendToClient(fd, ":server 475 " + client->getNickname() + " " + channelName + " :Cannot join channel (+k)");
+                return;
+            }
+            if (channel->hasUserLimit() && channel->getClients().size() >= channel->getUserLimit())
+            {
+                SendToClient(fd, ":server 471 " + client->getNickname() + " " + channelName + " :Cannot join channel (+l)");
+                return;
+            }
+            channel->addClient(client);
         }
-        if (channel->hasPassword() && channel->getPassword() != channelPassword)
+        if (channel->isInvited(fd))
+            channel->removeInvited(fd);
+        std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost JOIN " + channelName;
+        channel->broadcastToChannel(joinMsg, -1);
+        if (!channel->getTopic().empty())
         {
-            SendToClient(fd, ":server 475 " + client->getNickname() + " " + channelName + " :Cannot join channel (+k)");
-            return;
+            SendToClient(fd, ":server 332 " + client->getNickname() + " " + channelName + " :" + channel->getTopic());
         }
-        if (channel->hasUserLimit() && channel->getClients().size() >= channel->getUserLimit())
+        else
         {
-            SendToClient(fd, ":server 471 " + client->getNickname() + " " + channelName + " :Cannot join channel (+l)");
-            return;
+            SendToClient(fd, ":server 331 " + client->getNickname() + " " + channelName + " :No topic is set");
         }
-        channel->addClient(client);
+        std::string userList = "353 " + client->getNickname() + " = " + channelName + " :";
+        std::vector<Client *> clients = channel->getClients();
+        for (size_t i = 0; i < clients.size(); i++)
+        {
+            if (channel->isOperator(clients[i]->getFd()))
+                userList += "@";
+            userList += clients[i]->getNickname();
+            if (i < clients.size() - 1)
+                userList += " ";
+        }
+        SendToClient(fd, ":server " + userList);
+        SendToClient(fd, ":server 366 " + client->getNickname() + " " + channelName + " :End of /NAMES list");
+        std::cout << "Client <" << fd << "> (" << client->getNickname() << ") joined " << channelName << std::endl;
     }
-    if (channel->isInvited(fd))
-        channel->removeInvited(fd);
-    std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost JOIN " + channelName;
-    channel->broadcastToChannel(joinMsg, -1);
-    if (!channel->getTopic().empty())
-    {
-        SendToClient(fd, ":server 332 " + client->getNickname() + " " + channelName + " :" + channel->getTopic());
-    }
-    else
-    {
-        SendToClient(fd, ":server 331 " + client->getNickname() + " " + channelName + " :No topic is set");
-    }
-    std::string userList = "353 " + client->getNickname() + " = " + channelName + " :";
-    std::vector<Client *> clients = channel->getClients();
-    for (size_t i = 0; i < clients.size(); i++)
-    {
-        if (channel->isOperator(clients[i]->getFd()))
-            userList += "@";
-        userList += clients[i]->getNickname();
-        if (i < clients.size() - 1)
-            userList += " ";
-    }
-    SendToClient(fd, ":server " + userList);
-    SendToClient(fd, ":server 366 " + client->getNickname() + " " + channelName + " :End of /NAMES list");
-    std::cout << "Client <" << fd << "> (" << client->getNickname() << ") joined " << channelName << std::endl;
 }
+
+void Server::multipleChannels(int fd, std::string channelName, std::string channelPassword)
+{
+    std::vector<std::string> splitChannels = SplitChannels(channelName);
+    std::vector<std::string> splitPasswords = SplitChannels(channelPassword);
+    if (splitChannels.empty())
+        throw(std::runtime_error("Error: could not split channels/passwords\n"));
+    
+    for (size_t i = 0; i < splitChannels.size(); i++)
+    {
+        std::string args = splitChannels[i];
+        if (i < splitPasswords.size() && !splitPasswords[i].empty())
+            args += " " + splitPasswords[i];
+        HandleJoinCommand(fd, args);
+    }
+}
+
+
 
 void Server::HandlePrivmsgCommand(int fd, std::string args)
 {

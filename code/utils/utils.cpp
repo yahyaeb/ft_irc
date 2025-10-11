@@ -75,3 +75,25 @@ std::vector<std::string> Server::SplitMessage(std::string message)
     }
     return lines;
 }
+
+std::vector<std::string> Server::SplitChannels(std::string channelName)
+{
+    std::vector<std::string> lines;
+    std::string line;
+
+    for (size_t i = 0; i < channelName.length(); i++)
+    {
+        if (channelName[i] == ',')
+        {
+            if (!line.empty())
+                lines.push_back(line);
+            line.clear();
+        }
+        else
+            line += channelName[i];
+    }
+    if (!line.empty())
+        lines.push_back(line);
+
+    return lines;
+}
