@@ -136,6 +136,13 @@ void Server::ReceiveNewData(int fd)
             std::cout << "Client<" << fd << ">: " << lines[i] << std::endl;
             this->HandleClientMessage(fd, lines[i]);
         }
+        size_t lastNewline = client->getBuffer().find_last_of("\n");
+        if (lastNewline != std::string::npos)
+        {
+            std::string remaining = client->getBuffer().substr(lastNewline + 1);
+            client->clearBuffer();
+            client->appendBuffer(remaining);
+        }
     }
 }
 

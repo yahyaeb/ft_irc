@@ -21,7 +21,7 @@ bool Client::isAuthenticated(void) { return this->_IsAuthenticated; }
 
 bool Client::isRegistered(void) { return this->_IsRegistered; }
 
-std::string Client::getBuffer(void) { return this->_Buffer; }
+std::string &Client::getBuffer(void) { return this->_Buffer; }
 
 void Client::setNickname(std::string nickname) { this->_Nickname = nickname; }
 
@@ -33,6 +33,6 @@ void Client::setAuthenticated(bool auth) { this->_IsAuthenticated = auth; }
 
 void Client::setRegistered(bool reg) { this->_IsRegistered = reg; }
 
-void Client::appendBuffer(std::string data) { this->_Buffer = data; }
+void Client::appendBuffer(std::string data) { this->_Buffer += data; }
 
 void Client::clearBuffer(void) { this->_Buffer.clear(); }

@@ -42,7 +42,7 @@ public:
     std::string getUsername(void);
     bool isAuthenticated(void);
     bool isRegistered(void);
-    std::string getBuffer(void);
+    std::string &getBuffer(void);
 
     void setNickname(std::string nickname);
     void setUsername(std::string username);
