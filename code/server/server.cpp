@@ -175,9 +175,14 @@ void Server::HandleClientMessage(int fd, std::string message)
     else if (command == "PING")
     {
         if (args.empty())
-            SendToClient(fd, "PONG :");
+            SendToClient(fd, ":server PONG server");
         else
-            SendToClient(fd, "PONG :" + args);
+        {
+            std::string pongToken = args;
+            if (!pongToken.empty() && pongToken[0] == ':')
+                pongToken = pongToken.substr(1);
+            SendToClient(fd, ":server PONG server:" + pongToken);
+        }
     }
     else if (command == "PRIVMSG")
         HandlePrivmsgCommand(fd, args);

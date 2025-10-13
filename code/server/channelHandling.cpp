@@ -174,9 +174,9 @@ void Server::HandleKickCommand(int fd, std::string args)
     std::getline(iss, reason);
 
     if (!reason.empty() && reason[0] == ' ')
-        reason.substr(1);
+        reason = reason.substr(1);
     if (!reason.empty() && reason[0] == ':')
-        reason.substr(1);
+        reason = reason.substr(1);
     if (reason.empty())
         reason = client->getNickname(); // raison de kick par defaul == nickname
 
@@ -287,7 +287,7 @@ void Server::HandleTopicCommand(int fd, std::string args, std::string command)
         channelName = args.substr(0, space);
         newTopic = args.substr(space + 1);
         if (!newTopic.empty() && newTopic[0] == ':')
-            newTopic.substr(1);
+            newTopic = newTopic.substr(1);
         if (newTopic[0] == ':' && newTopic[1] == ' ')
         {
             SendToClient(fd, "461" + client->getNickname() + ' ' + args + " :leading spaces are not allowed");
