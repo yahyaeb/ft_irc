@@ -33,6 +33,6 @@ void Client::setAuthenticated(bool auth) { this->_IsAuthenticated = auth; }
 
 void Client::setRegistered(bool reg) { this->_IsRegistered = reg; }
 
-void Client::appendBuffer(std::string data) { this->_Buffer += data; }
+void Client::appendBuffer(std::string data) { this->_Buffer = data; }
 
 void Client::clearBuffer(void) { this->_Buffer.clear(); }
