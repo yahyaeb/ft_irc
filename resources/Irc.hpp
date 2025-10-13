@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <signal.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -16,7 +17,7 @@
 #include <sstream>
 #include <map>
 #include <time.h>
-#include <unordered_set>
+#include <set>
 #include <algorithm>
 
 class Client
@@ -59,8 +60,8 @@ private:
     std::string _channelTopic;
     std::string _channelPassword;
     std::vector<Client *> _clientsInChannel;
-    std::unordered_set<int> _operators;
-    std::unordered_set<int> _invitedClients;
+    std::set<int> _operators;
+    std::set<int> _invitedClients;
 
     bool _inviteOnly;
     bool _topicRestricted;
