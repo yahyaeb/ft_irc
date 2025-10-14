@@ -1,12 +1,14 @@
 #include "../../resources/Irc.hpp"
 
-Server::Server() { this->_ServerSocket = -1; }
+Server::Server()
+{
+    this->_ServerSocket = -1;
+}
 bool Server::_Signal = false;
 
 void Server::ClearClients(int fd)
 {
     RemoveClientFromAllChannels(fd);
-
     for (size_t i = 0; i < this->_pollFds.size(); i++)
     {
         if (this->_pollFds[i].fd == fd)
@@ -27,6 +29,7 @@ void Server::ClearClients(int fd)
 }
 void Server::HandleSignal(int signum)
 {
+    Server servObj;
     (void)signum;
     Server::_Signal = true;
 }
@@ -36,7 +39,6 @@ void Server::ServerInit(int port, std::string password)
     this->_ServerPort = port;
     this->_ServerPassword = password;
     this->ServerSocketCreation();
-
     std::cout << "Server <" << this->_ServerSocket << "> connected!\n";
     std::cout << "The server is waiting to accept a connection...\n";
     while (Server::_Signal == false)
@@ -61,20 +63,22 @@ void Server::ServerSocketCreation(void)
 {
     struct sockaddr_in ServerAdress;
     struct pollfd Polls;
+    int flag;
 
     ServerAdress.sin_family = AF_INET;
     ServerAdress.sin_addr.s_addr = INADDR_ANY;
     ServerAdress.sin_port = htons(this->_ServerPort);
-
     this->_ServerSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (this->_ServerSocket == -1)
         throw(std::runtime_error("Error: failed to create server socket\n"));
-    int flag = 1;
-    if (setsockopt(this->_ServerSocket, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) == -1)
+    flag = 1;
+    if (setsockopt(this->_ServerSocket, SOL_SOCKET, SO_REUSEADDR, &flag,
+                   sizeof(flag)) == -1)
         throw(std::runtime_error("Error: adress already in use\n"));
     if (fcntl(this->_ServerSocket, F_SETFL, O_NONBLOCK) == -1)
         throw(std::runtime_error("Error: could not set socket in non blocking mode\n"));
-    if (bind(this->_ServerSocket, (struct sockaddr *)&ServerAdress, sizeof(ServerAdress)) == -1)
+    if (bind(this->_ServerSocket, (struct sockaddr *)&ServerAdress,
+             sizeof(ServerAdress)) == -1)
         throw(std::runtime_error("Error: could not bind the server's socket to an IP adress\n"));
     if (listen(this->_ServerSocket, SOMAXCONN) == -1)
         throw(std::runtime_error("Error: listen() failed\n"));
@@ -86,12 +90,15 @@ void Server::ServerSocketCreation(void)
 
 void Server::AcceptNewClient()
 {
-    Client *client = new Client();
+    Client *client;
     struct sockaddr_in clientAdress;
     struct pollfd clientPollFd;
-    socklen_t len = sizeof(clientAdress);
+    socklen_t len;
+    int clientSocket;
 
-    int clientSocket = accept(this->_ServerSocket, (sockaddr *)&clientAdress, &len);
+    client = new Client();
+    len = sizeof(clientAdress);
+    clientSocket = accept(this->_ServerSocket, (sockaddr *)&clientAdress, &len);
     if (clientSocket == -1)
         throw(std::runtime_error("Error: client socket creation failed\n"));
     if (fcntl(clientSocket, F_SETFL, O_NONBLOCK) == -1)
@@ -99,24 +106,22 @@ void Server::AcceptNewClient()
     clientPollFd.fd = clientSocket;
     clientPollFd.events = POLLIN;
     clientPollFd.revents = 0;
-
     client->setFd(clientSocket);
     client->setIp(inet_ntoa(clientAdress.sin_addr));
-
     this->_ServerClients.push_back(client);
     this->_pollFds.push_back(clientPollFd);
-
     std::cout << "Client <" << clientSocket << "> connected to the server!\n";
 }
 
 void Server::ReceiveNewData(int fd)
 {
     char buffer[1024];
+    ssize_t receivedBytes;
+    Client *client;
+    size_t lastNewline;
 
     memset(buffer, 0, sizeof(buffer));
-
-    ssize_t receivedBytes = recv(fd, buffer, sizeof(buffer) - 1, 0);
-
+    receivedBytes = recv(fd, buffer, sizeof(buffer) - 1, 0);
     if (receivedBytes <= 0)
     {
         std::cout << "Client <" << fd << "> disconnected see you next time!\n";
@@ -126,7 +131,7 @@ void Server::ReceiveNewData(int fd)
     else
     {
         buffer[receivedBytes] = '\0';
-        Client *client = this->GetClientByFd(fd);
+        client = this->GetClientByFd(fd);
         if (!client)
             return;
         client->appendBuffer(std::string(buffer));
@@ -136,7 +141,7 @@ void Server::ReceiveNewData(int fd)
             std::cout << "Client<" << fd << ">: " << lines[i] << std::endl;
             this->HandleClientMessage(fd, lines[i]);
         }
-        size_t lastNewline = client->getBuffer().find_last_of("\n");
+        lastNewline = client->getBuffer().find_last_of("\n");
         if (lastNewline != std::string::npos)
         {
             std::string remaining = client->getBuffer().substr(lastNewline + 1);
@@ -148,10 +153,11 @@ void Server::ReceiveNewData(int fd)
 
 void Server::HandleClientMessage(int fd, std::string message)
 {
-    size_t spacePos = message.find(' ');
+    size_t spacePos;
+
+    spacePos = message.find(' ');
     std::string command;
     std::string args;
-
     if (spacePos == std::string::npos)
     {
         command = message;
@@ -175,14 +181,9 @@ void Server::HandleClientMessage(int fd, std::string message)
     else if (command == "PING")
     {
         if (args.empty())
-            SendToClient(fd, ":server PONG server");
+            SendToClient(fd, "PONG: server");
         else
-        {
-            std::string pongToken = args;
-            if (!pongToken.empty() && pongToken[0] == ':')
-                pongToken = pongToken.substr(1);
-            SendToClient(fd, ":server PONG server:" + pongToken);
-        }
+            SendToClient(fd, "PONG: " + args);
     }
     else if (command == "PRIVMSG")
         HandlePrivmsgCommand(fd, args);
@@ -200,8 +201,9 @@ void Server::HandleClientMessage(int fd, std::string message)
 
 void Server::HandlePassCommand(int fd, std::string args)
 {
-    Client *client = GetClientByFd(fd);
+    Client *client;
 
+    client = GetClientByFd(fd);
     if (!client)
         return;
     if (client->isAuthenticated())
@@ -212,7 +214,8 @@ void Server::HandlePassCommand(int fd, std::string args)
     if (args == this->_ServerPassword)
     {
         client->setAuthenticated(true);
-        std::cout << "Client <" << fd << ">: " << "authenticated successfully\n";
+        std::cout << "Client <" << fd << ">: "
+                  << "authenticated successfully\n";
     }
     else
     {
@@ -226,7 +229,9 @@ void Server::HandlePassCommand(int fd, std::string args)
 
 void Server::HandleNickCommand(int fd, std::string args)
 {
-    Client *client = this->GetClientByFd(fd);
+    Client *client;
+
+    client = this->GetClientByFd(fd);
     if (!client)
         return;
     if (!client->isAuthenticated())

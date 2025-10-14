@@ -34,6 +34,10 @@ void Server::closeFds()
         close(this->_ServerClients[i]->getFd());
         delete this->_ServerClients[i];
     }
+    std::map<std::string, Channel *>::iterator it;
+    for (it = this->ChannelMap.begin(); it != this->ChannelMap.end(); it++)
+        delete it->second;
+    this->ChannelMap.clear();
     if (this->_ServerSocket != -1)
         close(this->_ServerSocket);
 }
