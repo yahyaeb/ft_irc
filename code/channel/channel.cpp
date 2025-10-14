@@ -175,7 +175,7 @@ void Server::RemoveClientFromAllChannels(int fd)
             it->second->removeClient(fd);
             channelsToCheck.push_back(it->first);
         }
-    }   
+    }
     for (size_t i = 0; i < channelsToCheck.size(); i++)
     {
         RemoveChannelIfEmpty(channelsToCheck[i]);
