@@ -19,6 +19,7 @@
 #include <time.h>
 #include <set>
 #include <algorithm>
+#include <string>
 
 class Client
 {
@@ -142,6 +143,9 @@ public:
     void RemoveClientFromAllChannels(int fd);
     void multipleChannels(int fd, std::string channelName, std::string channelPassword);
     std::vector<std::string> SplitChannels(std::string channelName);
+
+    ////////////////////////////////////////////////BONUS////////////////////////////////////////////////
+    void botManager(int fd, Channel *channel ,std::string channelName, Client *client);
 };
 bool parsePortAndPswd(char *port, char *password);
 

@@ -1,5 +1,5 @@
-SRCS = code/main.cpp code/utils/utils.cpp code/server/server.cpp code/client/client.cpp code/channel/channel.cpp code/server/channelHandling.cpp
-
+SRCS = code/main.cpp code/utils/utils.cpp code/server/server.cpp code/client/client.cpp code/channel/channel.cpp code/server/channelHandling.cpp \
+/home/ihhadjal/projects/cercle_6/ft_irc/code/channel/bot.cpp
 OBJS = ${SRCS:.cpp=.o}
 
 NAME = ircserv

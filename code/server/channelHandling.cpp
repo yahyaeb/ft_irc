@@ -30,6 +30,7 @@ void Server::HandleJoinCommand(int fd, std::string args)
         if (!channel)
         {
             channel = CreateChannel(channelName, client);
+            this->botManager(fd, channel ,channelName, client);
             std::cout << "client: " << client->getUsername() << "created the: " << channel->getName() << " channel" << std::endl;
         }
         else
