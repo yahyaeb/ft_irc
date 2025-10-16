@@ -69,6 +69,7 @@ private:
     bool _hasPassword;
     bool _hasUserLimit;
     size_t _userLimit;
+    Client *_botClient;
 
 public:
     Channel(std::string name);
@@ -101,6 +102,9 @@ public:
     void removeOperator(int fd);
     void addInvited(int fd);
     void removeInvited(int fd);
+
+    Client *getBot() const;
+    void setBot(Client *bot);
 };
 class Server
 {
@@ -145,7 +149,8 @@ public:
     std::vector<std::string> SplitChannels(std::string channelName);
 
     ////////////////////////////////////////////////BONUS////////////////////////////////////////////////
-    void botManager(int fd, Channel *channel ,std::string channelName, Client *client);
+    void botManager(int fd, std::string channelName, Channel *channel, Client *client);
+    void handleBotCommand(Channel *channel, Client *client, std::string message);
 };
 bool parsePortAndPswd(char *port, char *password);
 

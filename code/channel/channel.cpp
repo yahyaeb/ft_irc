@@ -10,8 +10,13 @@ Channel::Channel(std::string name)
     this->_hasPassword = false;
     this->_hasUserLimit = false;
     this->_userLimit = 0;
+    this->_botClient = NULL;
 }
-Channel::~Channel() {};
+Channel::~Channel()
+{
+    if (_botClient)
+        delete _botClient;
+};
 std::string Channel::getName() const { return _channelName; }
 std::string Channel::getTopic() const { return _channelTopic; }
 std::string Channel::getPassword() const { return _channelPassword; }
@@ -103,6 +108,10 @@ void Channel::removeInvited(int fd)
 {
     _invitedClients.erase(fd);
 }
+
+Client *Channel::getBot() const { return _botClient; }
+
+void Channel::setBot(Client *bot) { _botClient = bot; }
 
 void Channel::broadcastToChannel(std::string message, int excludeFd)
 {

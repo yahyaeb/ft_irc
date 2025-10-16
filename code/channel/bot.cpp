@@ -1,20 +1,55 @@
 #include "../../resources/Irc.hpp"
 
-void    Server::botManager(int fd, Channel *channel, std::string channelName, Client *client)
+void Server::botManager(int fd, std::string channelName, Channel *channel, Client *client)
 {
     (void)fd;
-    time_t t = time(NULL);
-    struct tm date = *localtime(&t);
-    std::ostringstream oss;
-    std::ostringstream oss1;
-    std::ostringstream oss2;
+    (void)client;
 
-    int year = date.tm_year + 1900;
-    int month = date.tm_mon + 1;
-    int day = date.tm_mday;
-    oss << year;
-    oss1 << month;
-    oss2 << day;
-    std::string botMessage = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost " + channelName + " channel, the current date is " + oss.str() + "-" + oss1.str() + "-" + oss2.str();
-    channel->broadcastToChannel(botMessage, -1);
+    Client *bot = new Client();
+    bot->setFd(-1);
+    bot->setNickname("ChannelBot");
+    bot->setUsername("bot");
+    bot->setRealname("Channel Information Bot");
+    bot->setAuthenticated(true);
+    bot->setRegistered(true);
+
+    channel->setBot(bot);
+
+    std::string welcomeMsg = ":ChannelBot!bot@localhost PRIVMSG " + channelName + " :Welcome to " + channelName + "! Type !help for available commands.";
+    channel->broadcastToChannel(welcomeMsg, -1);
+
+    std::cout << "Bot created for channel: " << channelName << std::endl;
+}
+
+void Server::handleBotCommand(Channel *channel, Client *client, std::string message)
+{
+    (void)client;
+
+    if (message.find("!help") == 0)
+    {
+        std::string helpMsg = ":ChannelBot!bot@localhost PRIVMSG " + channel->getName() +
+                              " :Available commands: !help, !rules, !info, !users";
+        channel->broadcastToChannel(helpMsg, -1);
+    }
+    else if (message.find("!rules") == 0)
+    {
+        std::string rulesMsg = ":ChannelBot!bot@localhost PRIVMSG " + channel->getName() +
+                               " :1. Be respectful 2. No spam 3. Stay on topic";
+        channel->broadcastToChannel(rulesMsg, -1);
+    }
+    else if (message.find("!info") == 0)
+    {
+        std::string topic = channel->getTopic().empty() ? "No topic set" : channel->getTopic();
+        std::string infoMsg = ":ChannelBot!bot@localhost PRIVMSG " + channel->getName() +
+                              " :Channel: " + channel->getName() + " | Topic: " + topic;
+        channel->broadcastToChannel(infoMsg, -1);
+    }
+    else if (message.find("!users") == 0)
+    {
+        std::ostringstream oss;
+        oss << channel->getClients().size();
+        std::string userCount = ":ChannelBot!bot@localhost PRIVMSG " + channel->getName() +
+                                " :Current users: " + oss.str();
+        channel->broadcastToChannel(userCount, -1);
+    }
 }

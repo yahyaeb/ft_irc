@@ -181,9 +181,9 @@ void Server::HandleClientMessage(int fd, std::string message)
     else if (command == "PING")
     {
         if (args.empty())
-            SendToClient(fd, "PONG: server");
+            SendToClient(fd, ":server PONG server");
         else
-            SendToClient(fd, "PONG: " + args);
+            SendToClient(fd, ":server PONG server :" + args);
     }
     else if (command == "PRIVMSG")
         HandlePrivmsgCommand(fd, args);

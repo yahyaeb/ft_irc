@@ -30,8 +30,8 @@ void Server::HandleJoinCommand(int fd, std::string args)
         if (!channel)
         {
             channel = CreateChannel(channelName, client);
-            this->botManager(fd, channel ,channelName, client);
             std::cout << "client: " << client->getUsername() << "created the: " << channel->getName() << " channel" << std::endl;
+            botManager(fd, channelName, channel, client);
         }
         else
         {
@@ -138,6 +138,14 @@ void Server::HandlePrivmsgCommand(int fd, std::string args)
             SendToClient(fd, "404" + messageTarget + ":Cannot send to channel");
             return;
         }
+
+        // Check if it's a bot command
+        if (!message.empty() && message[0] == '!')
+        {
+            handleBotCommand(channel, client, message);
+            return;
+        }
+
         std::string fullMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@localhost PRIVMSG " + messageTarget + " :" + message;
         channel->broadcastToChannel(fullMsg, fd);
 
