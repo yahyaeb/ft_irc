@@ -149,7 +149,7 @@ public:
     std::vector<std::string> SplitChannels(std::string channelName);
 
     ////////////////////////////////////////////////BONUS////////////////////////////////////////////////
-    void botManager(int fd, std::string channelName, Channel *channel, Client *client);
+    void botManager(std::string channelName, Channel *channel);
     void handleBotCommand(Channel *channel, Client *client, std::string message);
 };
 bool parsePortAndPswd(char *port, char *password);

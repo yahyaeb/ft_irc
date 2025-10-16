@@ -1,10 +1,7 @@
 #include "../../resources/Irc.hpp"
 
-void Server::botManager(int fd, std::string channelName, Channel *channel, Client *client)
+void Server::botManager(std::string channelName, Channel *channel)
 {
-    (void)fd;
-    (void)client;
-
     Client *bot = new Client();
     bot->setFd(-1);
     bot->setNickname("ChannelBot");

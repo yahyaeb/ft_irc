@@ -31,7 +31,7 @@ void Server::HandleJoinCommand(int fd, std::string args)
         {
             channel = CreateChannel(channelName, client);
             std::cout << "client: " << client->getUsername() << "created the: " << channel->getName() << " channel" << std::endl;
-            botManager(fd, channelName, channel, client);
+            botManager(channelName, channel);
         }
         else
         {
