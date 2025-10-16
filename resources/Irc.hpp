@@ -23,7 +23,13 @@ struct Client
 struct Channel
 {
 	std::string name;
+	int max_members;
 	std::set<int> members;
+	std::set<int> operators;
+	std::string topic;
+	std::set<char> modes;
+	std::string key;
+	Channel(): max_members(0) {}
 };
 
 class Server
@@ -51,8 +57,11 @@ class Server
 		Server(int port, const std::string &pass);
 		~Server();
 		void run();
+		void cmdTopic(Client &c, const std::string &channel_name, const std::string &topic);
+		void addChannelMode(Channel &chan, char mode);
+		void removeChannelMode(Channel &chan, char mode);
+		bool hasChannelMode(const Channel &chan, char mode);
 
-		
 void broadcastToChannel(const std::string& chan, int from_fd, const std::string& msg)
 {
 	std::map<std::string, Channel>::iterator it = channels.find(chan);

@@ -349,6 +349,21 @@ void Server::handleLine(Client &c, const std::string &line) {
 			return;
 		}
 	}
+	else if (cmd == "TOPIC")
+	{
+		std::string channel_name;
+		std::string topic;
+		std::string::size_type space_pos = rest.find(' ');
+		if (space_pos != std::string::npos) {
+			channel_name = rest.substr(0, space_pos);
+			topic = rest.substr(space_pos + 1);
+		} else {
+			channel_name = rest;
+		}
+
+		cmdTopic(c, channel_name, topic);
+		return;
+	}
 	else
 		sendRaw(c.fd, ":ft_irc NOTICE * :You said: " + line + "\r\n");
 }
@@ -366,6 +381,8 @@ void Server::sendRaw(int fd, const std::string &msg) {
 		bytes_sent += n;
 	}
 }
+
+
 
 void Server::run() {
 	while (true) {
@@ -386,3 +403,61 @@ void Server::run() {
 		}
 	}
 }
+
+void Server::addChannelMode(Channel &chan, char mode)
+{
+	chan.modes.insert(mode);
+}
+
+void Server::removeChannelMode(Channel &chan, char mode)
+{
+	chan.modes.erase(mode);
+}
+
+bool Server::hasChannelMode(const Channel &chan, char mode)
+{
+	return chan.modes.find(mode) != chan.modes.end();
+}
+
+void Server::cmdTopic(Client &c, const std::string &channel_name, const std::string &topic)
+{
+	// Check if channel exists
+	std::map<std::string, Channel>::iterator it = channels.find(channel_name);
+	if (it == channels.end())
+	{
+		sendRaw(c.fd, ":ft_irc 403 " + c.nick + " " + channel_name + " :No such channel\r\n");
+		return;
+	}
+	Channel &chan = it->second;
+
+	// Check if user is in the channel
+	if (chan.members.find(c.fd) == chan.members.end())
+	{
+		sendRaw(c.fd, ":ft_irc 442 " + c.nick + " " + channel_name + " :You're not on that channel\r\n");
+		return;
+	}
+
+	// Handle setting the topic
+	if (!topic.empty())
+	{
+		// Check if mode is ´t' 
+		if (hasChannelMode(chan, 't') && chan.operators.find(c.fd) == chan.operators.end())
+		{
+			sendRaw(c.fd, ":ft_irc 482 " + c.nick + " " + channel_name + " :You're not channel operator\r\n");
+			return;
+		}
+		chan.topic = topic;
+		sendRaw(c.fd, ":ft_irc 332 " + c.nick + " " + channel_name + " :" + topic + "\r\n");
+		broadcastToChannel(channel_name, c.fd, ":" + c.nick + " TOPIC " + channel_name + " :" + topic + "\r\n");
+	}
+	else
+	{
+		// Fiind topic 
+		if (chan.topic.empty())
+			sendRaw(c.fd, ":ft_irc 331 " + c.nick + " " + channel_name + " :No topic is set\r\n");
+		else
+			sendRaw(c.fd, ":ft_irc 332 " + c.nick + " " + channel_name + " :" + chan.topic + "\r\n");
+	}
+}
+
+
