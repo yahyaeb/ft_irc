@@ -9,8 +9,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-
-
 Server::Server(int p, const std::string &pass): listen_fd(-1), port(p), password(pass) {
 	initSocket();
 }
