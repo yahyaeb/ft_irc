@@ -1,5 +1,8 @@
 SRCS = code/main.cpp \
-	code/server.cpp
+	code/server.cpp \
+	code/utils.cpp \
+	code/close_client.cpp
+
 
 OBJS = ${SRCS:.cpp=.o}
 
