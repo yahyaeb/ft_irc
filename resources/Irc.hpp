@@ -45,7 +45,7 @@ struct Channel {
 	std::set<char> modes;              // {'i','t','k','l'} as flags;
 	std::string key;                   // MODE +k value
 	std::set<int> invited;
-	time_t created;                    // when first created
+	time_t created;                    // when first createdhandleClientRead
 	std::vector<int> join_order;       // order of joins
 	Channel(): max_members(0), created(std::time(NULL)) {}
 };
@@ -77,13 +77,15 @@ public:
 	~Server();
 	void run();
 
-	void cmdTopic(Client &c, const std::string &channel_name, const std::string &topic);
 	void addChannelMode(Channel &chan, char mode);
 	void removeChannelMode(Channel &chan, char mode);
 	bool hasChannelMode(const Channel &chan, char mode);
 
 	void cmdMode(Client &c, const std::string &chanName, const std::vector<std::string> &params);
 	void cmdKick(Client &c, const std::string &chanName, const std::string &targetNick, const std::string &reason);
+	void cmdInvite(Client &c, const std::string &targetNick, const std::string &chanName);
+	void cmdTopic(Client &c, const std::string &channel_name, const std::string &topic);
+
 
 
 	void broadcastToChannel(const std::string& chan, int from_fd, const std::string& msg)
@@ -108,3 +110,5 @@ void closeClient(int fd);
 
 
 #endif
+
+

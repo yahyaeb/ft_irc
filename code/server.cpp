@@ -10,7 +10,7 @@ static std::string to_string98(T v)
 
 Server::Server(int p, const std::string &pass): listen_fd(-1), port(p), password(pass)
 {
-	initSocket();
+	fSocket();
 }
 
 Server::~Server()
@@ -396,6 +396,65 @@ void Server::cmdKick(Client &c, const std::string &chanName, const std::string &
 	}
 }
 
+void Server::cmdInvite(Client &c, const std::string &targetNick, const std::string &chanName)
+{
+    if (targetNick.empty() || chanName.empty() || chanName[0] != '#') {
+        sendRaw(c.fd, ":ft_irc 461 " + (c.nick.empty()?std::string("*"):c.nick) +
+                        " INVITE :Not enough parameters\r\n");
+        return;
+    }
+
+    //chan must exist
+    std::map<std::string, Channel>::iterator chit = channels.find(chanName);
+    if (chit == channels.end()) {
+        sendRaw(c.fd, ":ft_irc 403 " + (c.nick.empty()?std::string("*"):c.nick) +
+                        " " + chanName + " :No such channel\r\n");
+        return;
+    }
+    Channel &chan = chit->second;
+
+    // Person inviting must be on the channel
+    if (chan.members.find(c.fd) == chan.members.end()) {
+        sendRaw(c.fd, ":ft_irc 442 " + (c.nick.empty()?std::string("*"):c.nick) +
+                        " " + chanName + " :You're not on that channel\r\n");
+        return;
+    }
+
+    // Policy: require +o to INVITE 
+    bool requireOp = true;
+    if (requireOp && chan.operators.find(c.fd) == chan.operators.end()) {
+        sendRaw(c.fd, ":ft_irc 482 " + (c.nick.empty()?std::string("*"):c.nick) +
+                        " " + chanName + " :You're not channel operator\r\n");
+        return;
+    }
+
+    // Target nick must exist
+    std::map<std::string,int>::iterator nit = nick_to_fd.find(targetNick);
+    if (nit == nick_to_fd.end()) {
+        sendRaw(c.fd, ":ft_irc 401 " + (c.nick.empty()?std::string("*"):c.nick) +
+                        " " + targetNick + " :No such nick\r\n");
+        return;
+    }
+    int targetFd = nit->second;
+
+    // If already in channel
+    if (chan.members.find(targetFd) != chan.members.end())
+    {
+        sendRaw(c.fd, ":ft_irc 443 " + (c.nick.empty()?std::string("*"):c.nick) +
+                        " " + targetNick + " " + chanName + " :is already on channel\r\n");
+        return;
+    }
+    chan.invited.insert(targetFd);
+    sendRaw(c.fd, ":ft_irc 341 " + (c.nick.empty()?std::string("*"):c.nick) +
+                    " " + targetNick + " " + chanName + "\r\n");
+    // Send INVITE to target
+    Client &t = clients[targetFd];
+    std::string prefix = (c.nick.empty()?std::string("*"):c.nick) + "!~" + c.user + "@ft_irc";
+    sendRaw(targetFd, ":" + prefix + " INVITE " + (t.nick.empty()?std::string("*"):t.nick) +
+                     " :" + chanName + "\r\n");
+}
+
+
 void Server::handleLine(Client &c, const std::string &line)
 {
 	std::string cmd, rest;
@@ -604,6 +663,27 @@ void Server::handleLine(Client &c, const std::string &line)
 		cmdKick(c, chanName, targetNick, reason);
 		return;
 	}
+    else if (cmd == "INVITE")
+    {
+        if (rest.empty()) {
+            sendRaw(c.fd, ":ft_irc 461 " + (c.nick.empty()?std::string("*"):c.nick) +
+                            " INVITE :Not enough parameters\r\n");
+            return;
+        }
+        // INVITE <nick> <channel>
+        std::string::size_type sp2 = rest.find(' ');
+        if (sp2 == std::string::npos) {
+            sendRaw(c.fd, ":ft_irc 461 " + (c.nick.empty()?std::string("*"):c.nick) +
+                            " INVITE :Not enough parameters\r\n");
+            return;
+        }
+        std::string targetNick = rest.substr(0, sp2);
+        std::string chanName   = rest.substr(sp2 + 1);
+        if (!chanName.empty() && chanName[0] == ':') chanName.erase(0,1);
+
+        cmdInvite(c, targetNick, chanName);
+        return;
+    }
 	else if (cmd == "PRIVMSG")
 	{
 		if (rest.empty())
