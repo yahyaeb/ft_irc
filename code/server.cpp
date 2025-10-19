@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   server.cpp                                         :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: yel-bouk <yel-bouk@student.42nice.fr>      +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/10/19 16:35:17 by yel-bouk          #+#    #+#             */
+/*   Updated: 2025/10/19 17:02:15 by yel-bouk         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "../resources/Irc.hpp"
 
 template<typename T>
@@ -10,7 +22,7 @@ static std::string to_string98(T v)
 
 Server::Server(int p, const std::string &pass): listen_fd(-1), port(p), password(pass)
 {
-	fSocket();
+	initSocket();
 }
 
 Server::~Server()
@@ -73,8 +85,6 @@ void Server::acceptNewClients()
 		int cfd = accept(listen_fd, NULL, NULL);
 		if (cfd == -1)
 		{
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-				break;
 			perror("accept");
 			break;
 		}
@@ -112,7 +122,7 @@ void Server::handleClientReadable(size_t idx)
 	ssize_t n = recv(fd, buf, sizeof(buf), 0);
 	if (n <= 0)
 	{
-		if (n == 0 || (errno != EAGAIN && errno != EWOULDBLOCK))
+		if (n == 0)
 			closeClient(fd);
 		return;
 	}
@@ -369,7 +379,7 @@ void Server::cmdKick(Client &c, const std::string &chanName, const std::string &
 	// Send to all current members (including the target)
 	for (std::set<int>::const_iterator m = ch.members.begin(); m != ch.members.end(); ++m)
 		sendRaw(*m, wire);
-	// Also make sure the kicked client gets it (in case they aren’t iterated due to timing)
+	// Also make sure the kicked client gets it (if not already sent)
 	sendRaw(targetFd, wire);
 
 	// Remove target from channel
@@ -383,10 +393,10 @@ void Server::cmdKick(Client &c, const std::string &chanName, const std::string &
 		return;
 	}
 
-	// If no operators remain, auto-promote someone (your policy)
+	// If no operators remain, auto-promote someone
 	if (ch.operators.empty())
 	{
-		int newop = *ch.members.begin(); // or use join_order
+		int newop = *ch.members.begin(); // promoting first member
 		ch.operators.insert(newop);
 		const Client &nc = clients[newop];
 		std::string modeWire = ":" + (nc.nick.empty()? std::string("*"): nc.nick)
@@ -767,78 +777,83 @@ void Server::handleLine(Client &c, const std::string &line)
 
 void Server::sendRaw(int fd, const std::string &msg)
 {
-	if (!clients.count(fd))
-		return;
-	Client &c = clients[fd];
-	c.outbuf += msg;
+    if (!clients.count(fd)) return;
+    Client &c = clients[fd];
 
-	for (size_t i = 0; i < pollfds.size(); ++i)
-	{
-		if (pollfds[i].fd == fd)
+    if (c.outbuf.empty()) {
+        ssize_t n = send(fd, msg.data(), msg.size(), 0);
+        if (n == (ssize_t)msg.size()) return;                  // all sent
+        if (n > 0)
 		{
-			pollfds[i].events |= POLLOUT;
-			break;
+			c.outbuf.append(msg.data() + n, msg.size() - n); 
+			return;
 		}
-	}
+        if (n < 0)
+		{
+			closeClient(fd);
+			return;
+		}
+    }
+    c.outbuf += msg;  // buffer pending data
 }
 
 void Server::handleClientWritable(size_t idx)
 {
-	int fd = pollfds[idx].fd;
-	if (!clients.count(fd))
-		return;
-	Client &c = clients[fd];
-	while (!c.outbuf.empty())
-	{
-		ssize_t n = send(fd, c.outbuf.data(), c.outbuf.size(), 0);
-		if (n > 0)
-			c.outbuf.erase(0, n);
-		else
+    int fd = pollfds[idx].fd;
+    if (!clients.count(fd)) return;
+
+    Client &c = clients[fd];
+
+    while (!c.outbuf.empty()) {
+        ssize_t n = send(fd, c.outbuf.data(), c.outbuf.size(), 0);
+        if (n > 0) {
+            c.outbuf.erase(0, n);
+            continue;
+        }
+        if (n == 0) 
 		{
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-				break;
-			closeClient(fd);
-			return;
-		}
-	}
-		if (c.outbuf.empty())
-		{
-			pollfds[idx].events &= ~POLLOUT;
-		}
+            closeClient(fd);
+            return;
+        }
+        closeClient(fd);
+        return;
+    }
 }
+
 
 void Server::run()
 {
-	while (true)
-	{
-		int ret = poll(&pollfds[0], pollfds.size(), 1000);
-		if (ret < 0)
-		{
-			if (errno == EINTR)
-				continue;
-			perror("poll");
-			break;
-		}
-		for (ssize_t i = (ssize_t)pollfds.size() - 1; i >= 0; --i)
-		{
-			if ((size_t)i >= pollfds.size())
-				continue;
+    while (true)
+    {
+        int ret = poll(pollfds.data(), pollfds.size(), 1000);
+        if (ret < 0) {
+            perror("poll");
+            break;
+        }
 
-			if (pollfds[i].revents & POLLIN)
+        for (ssize_t i = (ssize_t)pollfds.size() - 1; i >= 0; --i)
+        {
+            if ((size_t)i >= pollfds.size()) 
+				continue;
+            if (pollfds[i].revents == 0)
+                continue;
+
+            int fd = pollfds[i].fd;
+            if (fd == listen_fd)
 			{
-				if (pollfds[i].fd == listen_fd) acceptNewClients();
-				else handleClientReadable((size_t)i);
-			}
-			if ((size_t)i < pollfds.size() && (pollfds[i].revents & POLLOUT))
-				handleClientWritable((size_t)i);
-			if ((size_t)i < pollfds.size() && (pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL))) 
-			{
-				if (pollfds[i].fd != listen_fd)
-					closeClient(pollfds[i].fd);
-			}
-		}
-	}
+                acceptNewClients();
+                continue;
+            }
+
+            if ((size_t)i < pollfds.size())
+                handleClientReadable((size_t)i);
+				
+            if ((size_t)i < pollfds.size())
+                handleClientWritable((size_t)i);
+        }
+    }
 }
+
 
 void Server::addChannelMode(Channel &chan, char mode)
 {

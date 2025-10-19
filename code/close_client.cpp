@@ -6,7 +6,7 @@
 /*   By: yel-bouk <yel-bouk@student.42nice.fr>      +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/18 18:17:26 by yel-bouk          #+#    #+#             */
-/*   Updated: 2025/10/18 18:49:38 by yel-bouk         ###   ########.fr       */
+/*   Updated: 2025/10/19 16:27:16 by yel-bouk         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,19 +19,21 @@ void Server::closeClient(int fd)
 		for (size_t i = 0; i < pollfds.size(); ++i)
 			if (pollfds[i].fd == fd)
 			{
-				pollfds.erase(pollfds.begin() + i); break;
+				pollfds.erase(pollfds.begin() + i);
+				break;
 			}
 		close(fd);
 		return;
 	}
 
-	Client c = clients[fd]; // copy for nick after erase
+	Client c = clients[fd]; // if not erased, then copy client
 	std::cout << "[-] Client fd=" << fd << " disconnected" << std::endl;
 	// Remove nick mapping
 	if (!c.nick.empty())
 	{
 		std::map<std::string,int>::iterator itn = nick_to_fd.find(c.nick);
-		if (itn != nick_to_fd.end() && itn->second == fd) nick_to_fd.erase(itn);
+		if (itn != nick_to_fd.end() && itn->second == fd) 
+		    nick_to_fd.erase(itn);
 	}
 
 	// Remove from channels;
@@ -41,14 +43,16 @@ void Server::closeClient(int fd)
 		bool wasMember = ch.members.erase(fd) > 0;
 		ch.operators.erase(fd);
 
-		if (wasMember) {
+		if (wasMember)
+		{
 			std::string prefix = ":" + (c.nick.empty()? std::string("*"): c.nick);
 			std::string quitmsg = prefix + " QUIT :Client Quit\r\n";
 			for (std::set<int>::const_iterator m = ch.members.begin(); m != ch.members.end(); ++m)
 				sendRaw(*m, quitmsg);
 
-			if (ch.operators.empty() && !ch.members.empty()) {
-				int newop = *ch.members.begin(); // simple policy
+			if (ch.operators.empty() && !ch.members.empty()) 
+			{
+				int newop = *ch.members.begin(); // assigning new operator, promote first member
 				ch.operators.insert(newop);
 				const Client &nc = clients[newop];
 				std::string wire = ":" + (nc.nick.empty()? std::string("*"): nc.nick)
@@ -57,7 +61,6 @@ void Server::closeClient(int fd)
 					sendRaw(*m, wire);
 			}
 		}
-
 		if (ch.members.empty())
 		{
 			channels.erase(it++);
