@@ -297,7 +297,7 @@ void Server::HandleTopicCommand(int fd, std::string args, std::string command)
         newTopic = args.substr(space + 1);
         if (!newTopic.empty() && newTopic[0] == ':')
             newTopic = newTopic.substr(1);
-        if (newTopic[0] == ':' && newTopic[1] == ' ')
+        if (newTopic[0] == ':' && newTopic.size() > 1 && newTopic[1] == ' ')
         {
             SendToClient(fd, "461" + client->getNickname() + ' ' + args + " :leading spaces are not allowed");
             return;

@@ -128,8 +128,6 @@ void Channel::broadcastToChannel(std::string message, int excludeFd)
 Channel *Server::CreateChannel(std::string name, Client *client)
 {
     Channel *newChannel = new Channel(name);
-    if (!newChannel)
-        return NULL;
     newChannel->addClient(client);
     newChannel->addOperator(client->getFd());
     this->ChannelMap[name] = newChannel;

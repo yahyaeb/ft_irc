@@ -29,7 +29,6 @@ void Server::ClearClients(int fd)
 }
 void Server::HandleSignal(int signum)
 {
-    Server servObj;
     (void)signum;
     Server::_Signal = true;
 }
