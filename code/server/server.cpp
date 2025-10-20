@@ -6,27 +6,6 @@ Server::Server()
 }
 bool Server::_Signal = false;
 
-void Server::ClearClients(int fd)
-{
-    RemoveClientFromAllChannels(fd);
-    for (size_t i = 0; i < this->_pollFds.size(); i++)
-    {
-        if (this->_pollFds[i].fd == fd)
-        {
-            this->_pollFds.erase(this->_pollFds.begin() + i);
-            break;
-        }
-    }
-    for (size_t i = 0; i < this->_ServerClients.size(); i++)
-    {
-        if (this->_ServerClients[i]->getFd() == fd)
-        {
-            delete this->_ServerClients[i];
-            this->_ServerClients.erase(this->_ServerClients.begin() + i);
-            break;
-        }
-    }
-}
 void Server::HandleSignal(int signum)
 {
     (void)signum;
@@ -175,7 +154,7 @@ void Server::HandleClientMessage(int fd, std::string message)
         HandleUserCommand(fd, args);
     else if (command == "JOIN")
         HandleJoinCommand(fd, args);
-    else if (command == "CAP")
+    else if (command == "CAP" || command == "WHO")
         return;
     else if (command == "PING")
     {

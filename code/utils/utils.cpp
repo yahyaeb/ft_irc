@@ -107,3 +107,26 @@ std::vector<std::string> Server::SplitChannels(std::string channelName)
 
     return lines;
 }
+
+
+void Server::ClearClients(int fd)
+{
+    RemoveClientFromAllChannels(fd);
+    for (size_t i = 0; i < this->_pollFds.size(); i++)
+    {
+        if (this->_pollFds[i].fd == fd)
+        {
+            this->_pollFds.erase(this->_pollFds.begin() + i);
+            break;
+        }
+    }
+    for (size_t i = 0; i < this->_ServerClients.size(); i++)
+    {
+        if (this->_ServerClients[i]->getFd() == fd)
+        {
+            delete this->_ServerClients[i];
+            this->_ServerClients.erase(this->_ServerClients.begin() + i);
+            break;
+        }
+    }
+}
