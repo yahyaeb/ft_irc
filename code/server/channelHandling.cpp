@@ -349,8 +349,8 @@ void Server::HandleModeCommand(int fd, std::string args)
         return;
     }
     std::istringstream iss(args);
-    std::string channelName, modeString, modeParam;
-    iss >> channelName >> modeString >> modeParam;
+    std::string channelName, modeString;
+    iss >> channelName >> modeString;
     if (channelName.empty())
     {
         SendToClient(fd, "461 MODE :Not enough parameters");
@@ -421,7 +421,8 @@ void Server::HandleModeCommand(int fd, std::string args)
         {
             if (adding)
             {
-                if (modeParam.empty())
+                std::string modeParam;
+                if (!(iss >> modeParam))
                 {
                     SendToClient(fd, "461 MODE :Not enough parameters");
                     return;
@@ -438,7 +439,8 @@ void Server::HandleModeCommand(int fd, std::string args)
         }
         else if (mode == 'o')
         {
-            if (modeParam.empty())
+            std::string modeParam;
+            if (!(iss >> modeParam))
             {
                 SendToClient(fd, "461 MODE :Not enough parameters");
                 return;
@@ -472,9 +474,10 @@ void Server::HandleModeCommand(int fd, std::string args)
         }
         else if (mode == 'l')
         {
+            std::string modeParam;
             if (adding)
             {
-                if (modeParam.empty())
+                if (!(iss >> modeParam))
                 {
                     SendToClient(fd, "461 MODE :Not enough parameters");
                     return;
